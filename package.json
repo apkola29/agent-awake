@@ -1,0 +1,144 @@
+{
+  "name": "agent-keep-awake",
+  "displayName": "Agent Keep-Awake",
+  "description": "Stops your computer from going to sleep while AI agents (Copilot, Claude, Codex, ...) work in VS Code. Zero dependencies, ~0% CPU, uses your OS's own power APIs.",
+  "version": "1.0.0",
+  "publisher": "apkola29",
+  "author": "apkola29",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#16213E",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apkola29/agent-keep-awake.git"
+  },
+  "homepage": "https://apkola29.github.io/agent-keep-awake/",
+  "bugs": {
+    "url": "https://github.com/apkola29/agent-keep-awake/issues"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "sleep",
+    "keep awake",
+    "no sleep",
+    "caffeine",
+    "caffeinate",
+    "insomnia",
+    "agent",
+    "copilot",
+    "claude",
+    "power"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentKeepAwake.toggle",
+        "title": "Toggle On/Off",
+        "category": "Agent Keep-Awake",
+        "icon": "$(coffee)"
+      },
+      {
+        "command": "agentKeepAwake.enable",
+        "title": "Turn On (Keep Machine Awake)",
+        "category": "Agent Keep-Awake"
+      },
+      {
+        "command": "agentKeepAwake.disable",
+        "title": "Turn Off (Allow Sleep)",
+        "category": "Agent Keep-Awake"
+      },
+      {
+        "command": "agentKeepAwake.showStatus",
+        "title": "Show Status",
+        "category": "Agent Keep-Awake"
+      },
+      {
+        "command": "agentKeepAwake.showLog",
+        "title": "Show Log",
+        "category": "Agent Keep-Awake"
+      }
+    ],
+    "configuration": {
+      "title": "Agent Keep-Awake",
+      "properties": {
+        "agentKeepAwake.enabled": {
+          "type": "boolean",
+          "default": true,
+          "order": 0,
+          "markdownDescription": "Keep this computer from sleeping (according to `#agentKeepAwake.mode#`). Click the coffee cup in the status bar to switch it on or off."
+        },
+        "agentKeepAwake.mode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "activity"
+          ],
+          "default": "always",
+          "order": 1,
+          "markdownEnumDescriptions": [
+            "Keep the machine awake the whole time VS Code is open. Simplest and most reliable.",
+            "Keep the machine awake only while something is happening in this window (document or file edits, running terminal commands or tasks) and for `#agentKeepAwake.activityTimeoutMinutes#` minutes afterwards."
+          ],
+          "markdownDescription": "When to keep the machine awake."
+        },
+        "agentKeepAwake.activityTimeoutMinutes": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 1440,
+          "order": 2,
+          "markdownDescription": "Only used in `activity` mode: how many minutes to stay awake after the last detected activity."
+        },
+        "agentKeepAwake.keepDisplayOn": {
+          "type": "boolean",
+          "default": false,
+          "order": 3,
+          "markdownDescription": "Also keep the display on. When off (the default) your screen can still turn off and lock as usual while the machine itself stays awake, which uses less power."
+        },
+        "agentKeepAwake.showStatusBarItem": {
+          "type": "boolean",
+          "default": true,
+          "order": 4,
+          "markdownDescription": "Show the coffee cup indicator in the status bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:os": "node test/os/verify-os.js",
+    "test:integration": "node test/integration/runTest.js",
+    "test:all": "npm run typecheck && npm test && npm run test:os && npm run test:integration",
+    "package": "npx --yes @vscode/vsce@latest package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "~1.93.0",
+    "@vscode/test-electron": "^3.1.0",
+    "typescript": "^7.0.2"
+  }
+}

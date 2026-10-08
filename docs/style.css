@@ -1,0 +1,613 @@
+/* Agent Keep-Awake: "warm editorial night-shift".
+   Type and spacing follow a 3:4 scale anchored at 18px. System fonts only (no web fonts, no third-party requests). */
+
+:root {
+  --paper: #faf6ef;
+  --paper-deep: #f1e9dc;
+  --ink: #2b211b;
+  --ink-soft: #5e4e43;
+  --rule: #ddd0be;
+  --amber: #a65412;
+  --amber-deep: #8a440c;
+  --amber-bright: #e3964a;
+  --link: #1e5a8a;
+  --night: #1b2133;
+  --night-ink: #f2e9da;
+  --night-soft: #b9b2a6;
+  --bar: #1e5a8a;
+  --bar-ink: #f4efe6;
+
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --step--1: 0.84rem;
+  --step-0: 1.125rem;
+  --step-1: 1.5rem;
+  --step-2: 2rem;
+  --step-3: 2.67rem;
+  --step-4: 3.55rem;
+
+  --s-2: 0.5rem;
+  --s-1: 0.75rem;
+  --s0: 1.125rem;
+  --s1: 1.5rem;
+  --s2: 2rem;
+  --s3: 2.67rem;
+  --s4: 3.55rem;
+  --s5: 4.74rem;
+
+  --measure: 37rem;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17150f;
+    --paper-deep: #221f18;
+    --ink: #efe6d6;
+    --ink-soft: #bcae9a;
+    --rule: #3a3428;
+    --amber: #c26a22;
+    --amber-deep: #d77d33;
+    --link: #8cbbe6;
+    --night: #1e2639;
+    --bar: #24476b;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(1.0625rem, 1rem + 0.3vw, var(--step-0));
+  line-height: 1.55;
+  font-kerning: normal;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  hanging-punctuation: first;
+}
+
+a {
+  color: var(--link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-color: var(--amber-bright);
+  text-decoration-thickness: 2px;
+}
+
+a:focus-visible,
+.button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--amber-bright);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip:focus {
+  left: var(--s0);
+  top: var(--s0);
+  background: var(--ink);
+  color: var(--paper);
+  padding: var(--s-1) var(--s0);
+  z-index: 10;
+}
+
+/* Layout: an asymmetric editorial grid with a margin-note column on wide screens.
+   Every horizontal band is its own .page grid, so all content shares one left edge. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(var(--s0), 1fr) minmax(0, var(--measure)) minmax(var(--s0), 1fr);
+}
+
+.page > * {
+  grid-column: 2;
+}
+
+@media (min-width: 66rem) {
+  .page {
+    grid-template-columns: minmax(var(--s2), 1fr) minmax(0, var(--measure)) 15rem minmax(var(--s2), 2fr);
+    column-gap: var(--s3);
+  }
+
+  .page > .wide {
+    grid-column: 2 / 4;
+  }
+
+  .page > .note {
+    grid-column: 3;
+    grid-row: span 3;
+    align-self: start;
+  }
+}
+
+/* Masthead */
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-1) var(--s1);
+  padding: var(--s1) 0 var(--s0);
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead .name {
+  font-weight: 700;
+  font-size: var(--step-0);
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.masthead nav {
+  display: flex;
+  gap: var(--s1);
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.masthead nav a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: var(--s-2) 0;
+}
+
+.masthead nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom: 2px solid var(--amber);
+}
+
+/* Type */
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(var(--step-3), 1.6rem + 3.4vw, var(--step-4));
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: var(--step-2);
+  margin-top: var(--s4);
+}
+
+h3 {
+  font-size: var(--step-1);
+  margin-top: var(--s2);
+}
+
+p,
+ul,
+ol,
+table,
+pre,
+details {
+  margin: var(--s0) 0 0;
+}
+
+li + li {
+  margin-top: var(--s-2);
+}
+
+strong {
+  font-weight: 700;
+}
+
+.kicker {
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin: var(--s4) 0 var(--s-1);
+  font-weight: 700;
+}
+
+.lede {
+  font-size: var(--step-1);
+  line-height: 1.4;
+  color: var(--ink-soft);
+  margin-top: var(--s1);
+  max-width: 34rem;
+}
+
+.small {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+code,
+kbd {
+  background: var(--paper-deep);
+  padding: 0.08em 0.32em;
+  border-radius: 3px;
+}
+
+pre {
+  background: var(--paper-deep);
+  padding: var(--s0) var(--s1);
+  border-radius: 3px;
+  overflow-x: auto;
+  line-height: 1.45;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Buttons */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s0) var(--s2);
+  margin-top: var(--s2);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--s1);
+  background: var(--amber);
+  color: #fff8ee;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 3px;
+  transition: background-color 120ms ease-out;
+}
+
+.button:hover {
+  background: var(--amber-deep);
+  color: #fff8ee;
+}
+
+.more {
+  font-weight: 700;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Hero */
+.hero {
+  padding-top: var(--s4);
+}
+
+/* The status bar: the whole UI of the product, shown at actual scale. */
+.statusbar {
+  margin-top: var(--s4);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: var(--bar);
+  color: var(--bar-ink);
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Ubuntu, sans-serif;
+  font-size: 0.8rem;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 10px 24px -14px rgba(27, 33, 51, 0.55);
+  overflow: hidden;
+}
+
+.statusbar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.45rem 0.6rem;
+  white-space: nowrap;
+}
+
+.statusbar .left,
+.statusbar .right {
+  display: flex;
+}
+
+.statusbar .cup {
+  background: rgba(255, 255, 255, 0.16);
+  padding-inline: 0.75rem;
+}
+
+.statusbar .hide-narrow {
+  display: none;
+}
+
+@media (min-width: 40rem) {
+  .statusbar .hide-narrow {
+    display: inline-flex;
+  }
+}
+
+.statusbar-caption {
+  margin-top: var(--s-1);
+  text-align: right;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.steam path {
+  animation: steam 3.2s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.steam path:nth-child(2) {
+  animation-delay: 0.8s;
+}
+
+@keyframes steam {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0.5px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steam path {
+    animation: none;
+  }
+
+  .button {
+    transition: none;
+  }
+}
+
+/* Night band: the story */
+.night {
+  background: var(--night);
+  color: var(--night-ink);
+  margin-top: var(--s5);
+  padding: var(--s4) 0 var(--s5);
+}
+
+.night h2 {
+  margin-top: 0;
+  max-width: 30rem;
+}
+
+.night .kicker {
+  color: var(--amber-bright);
+  margin-top: 0;
+}
+
+.timelines {
+  display: grid;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+
+@media (min-width: 48rem) {
+  .timelines {
+    grid-template-columns: 3fr 2fr;
+    gap: var(--s4);
+  }
+}
+
+.timelines h3 {
+  font-size: var(--step-0);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--night-soft);
+  margin: 0 0 var(--s0);
+}
+
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-left: 1px solid rgba(242, 233, 218, 0.22);
+}
+
+.timeline li {
+  position: relative;
+  padding: 0 0 var(--s1) var(--s1);
+  margin: 0;
+}
+
+.timeline li::before {
+  content: "";
+  position: absolute;
+  left: -0.31rem;
+  top: 0.55em;
+  width: 0.56rem;
+  height: 0.56rem;
+  border-radius: 50%;
+  background: var(--night);
+  border: 1px solid var(--night-soft);
+}
+
+.timeline li.bad::before {
+  background: var(--amber-bright);
+  border-color: var(--amber-bright);
+}
+
+.timeline time {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  color: var(--amber-bright);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.timeline.with {
+  border-left-style: dashed;
+}
+
+.timeline.with time {
+  color: var(--night-soft);
+}
+
+.night p {
+  color: var(--night-soft);
+}
+
+/* Margin notes */
+.note {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  line-height: 1.5;
+  border-top: 2px solid var(--amber);
+  padding-top: var(--s-1);
+  margin-top: var(--s1);
+}
+
+@media (min-width: 66rem) {
+  .note {
+    margin-top: 0.5rem;
+  }
+}
+
+.note p:first-child {
+  margin-top: 0;
+}
+
+/* Tables: no vertical rules; alignment does the work. */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--s-1) var(--s0) var(--s-1) 0;
+}
+
+thead th {
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--ink-soft);
+}
+
+tbody tr + tr td {
+  border-top: 1px solid var(--rule);
+}
+
+td:last-child,
+th:last-child {
+  padding-right: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* Lists with a deliberate marker */
+.plain {
+  padding-left: 0;
+  list-style: none;
+}
+
+.plain li {
+  padding-left: 1.3em;
+  position: relative;
+}
+
+.plain li::before {
+  content: "\2013";
+  position: absolute;
+  left: 0;
+  color: var(--amber);
+}
+
+/* FAQ */
+details {
+  border-top: 1px solid var(--rule);
+  padding: var(--s-1) 0;
+}
+
+details:last-of-type {
+  border-bottom: 1px solid var(--rule);
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+details[open] summary {
+  margin-bottom: var(--s-2);
+}
+
+details > :not(summary) {
+  margin-top: 0;
+}
+
+/* Contents list on the guide */
+.toc {
+  font-size: var(--step--1);
+  columns: 2 12rem;
+  column-gap: var(--s2);
+  padding-left: 1.2em;
+}
+
+/* Footer */
+.footer {
+  margin-top: var(--s5);
+  padding: var(--s2) 0 var(--s3);
+  border-top: 1px solid var(--rule);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.section-title {
+  margin-top: 0;
+}
+
+.footer p {
+  margin: 0;
+}
+
+.footer p + p {
+  margin-top: var(--s-2);
+}

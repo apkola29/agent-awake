@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Keep-Awake: stop your laptop sleeping during long AI agent runs</title>
+  <meta name="description" content="A tiny VS Code extension that keeps your computer awake while AI agents like Copilot, Claude Code and Codex work. No settings changes, no mouse jiggling, about 0% CPU.">
+  <link rel="canonical" href="https://apkola29.github.io/agent-keep-awake/">
+  <meta property="og:title" content="Agent Keep-Awake: your agent was halfway through, then your laptop went to sleep">
+  <meta property="og:description" content="Keeps your computer awake while AI agents work in VS Code. Windows, macOS, Linux. Zero dependencies, about 0% CPU.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://apkola29.github.io/agent-keep-awake/">
+  <meta name="theme-color" content="#1b2133">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231b2133'/%3E%3Cpath d='M3.5 6.5h7v3.2a2.8 2.8 0 0 1-2.8 2.8H6.3a2.8 2.8 0 0 1-2.8-2.8z' fill='%23f2e9da'/%3E%3Cpath d='M10.5 7.4h.6a1.3 1.3 0 0 1 0 2.6h-.8' fill='none' stroke='%23f2e9da' stroke-width='1.1'/%3E%3Cpath d='M6 3.2c-.5.6.5 1.1 0 1.8M8.2 3.2c-.5.6.5 1.1 0 1.8' fill='none' stroke='%23e3964a' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="page">
+    <div class="masthead wide">
+      <a class="name" href="./">Agent Keep-Awake</a>
+      <nav aria-label="Site">
+        <a href="./" aria-current="page">Why</a>
+        <a href="usage.html">Guide</a>
+        <a href="https://github.com/apkola29/agent-keep-awake">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page" aria-labelledby="title">
+      <div class="hero wide">
+        <h1 id="title">Your agent was halfway through. Then your laptop went to&nbsp;sleep.</h1>
+        <p class="lede">Agent Keep-Awake is a tiny VS Code extension that keeps your computer awake while AI agents work: Copilot, Claude, Codex, or whatever you run next. Install it once and forget about it.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/apkola29/agent-keep-awake/releases/latest">Download the extension</a>
+          <a class="more" href="usage.html">Read the usage guide&nbsp;→</a>
+        </div>
+
+        <div class="statusbar" role="img" aria-label="A VS Code status bar with the Agent Keep-Awake coffee cup at its right-hand end">
+          <div class="left">
+            <span><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="5.5" r="1.5"/><path d="M4.5 5v6M11.5 7c0 3-7 2-7 4"/></svg> main*</span>
+            <span class="hide-narrow">⊗ 0&nbsp; ⚠ 0</span>
+          </div>
+          <div class="right">
+            <span class="hide-narrow">Ln 128, Col 9</span>
+            <span class="hide-narrow">Spaces: 2</span>
+            <span>UTF-8</span>
+            <span class="hide-narrow">{ } JavaScript</span>
+            <span class="cup">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <g class="steam"><path d="M6 1.6c-.6.7.6 1.3 0 2.1"/><path d="M8.8 1.6c-.6.7.6 1.3 0 2.1"/></g>
+                <path d="M2.6 5.8h8.6v4.2a3.3 3.3 0 0 1-3.3 3.3H5.9A3.3 3.3 0 0 1 2.6 10z"/>
+                <path d="M11.2 6.9h.9a1.6 1.6 0 0 1 0 3.2h-1"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+        <p class="statusbar-caption">That cup is the whole interface. Click it to let your computer sleep again.</p>
+      </div>
+    </section>
+
+    <section class="night" aria-labelledby="story">
+      <div class="page">
+        <div class="wide">
+          <p class="kicker">The problem</p>
+          <h2 id="story">One evening, two ways it can go</h2>
+          <div class="timelines">
+            <div>
+              <h3>Without it</h3>
+              <ol class="timeline">
+                <li><time>6:10 pm</time>You hand agent mode a three-hour refactor, with four subagents fanning out across the codebase. The plan looks good. You head home.</li>
+                <li class="bad"><time>6:40 pm</time>Thirty minutes without a keypress. As far as your operating system can tell, nobody is there, so it goes to sleep.</li>
+                <li class="bad"><time>6:40 pm</time>Everything stops mid-step: the model request, the test suite in the terminal, the SSH session to your dev box.</li>
+                <li class="bad"><time>8:55 am</time>You open the lid to a half-applied diff, a dead terminal and a “Reconnecting…” banner. Half an hour of a three-hour job got done.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>With Agent Keep-Awake</h3>
+              <ol class="timeline with">
+                <li><time>6:40 pm</time>The screen turns off and locks, as usual. The computer keeps working.</li>
+                <li><time>9:05 pm</time>The last subagent reports back and the tests pass.</li>
+                <li><time>8:55 am</time>You read the summary over coffee.</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" aria-labelledby="cause">
+      <p class="kicker">The cause</p>
+      <h2 id="cause" class="section-title">Sleep timers count keystrokes, and agents don’t type</h2>
+      <aside class="note" aria-label="Note">
+        <p><strong>Sleeping is not locking.</strong> A locked computer, or one with its screen off, keeps running. A sleeping one stops everything: processes, network connections and timers.</p>
+      </aside>
+      <p>Your operating system decides you’ve walked away by watching the keyboard and mouse. For decades that was a reasonable guess, because if nobody was typing, nothing was happening.</p>
+      <p>Agentic coding broke that guess. An agent reads files, edits code, runs builds and calls models for an hour or more without touching your keyboard. To the OS, a laptop doing a three-hour agent run looks exactly like a laptop someone forgot about.</p>
+      <p>Work laptops make this worse. Sleep timeouts of 10 to 30 minutes are common, and they’re often set by policy, so you can’t just change them.</p>
+    </section>
+
+    <section class="page" aria-labelledby="workarounds">
+      <p class="kicker">The workarounds</p>
+      <h2 id="workarounds" class="section-title">What people try instead</h2>
+      <aside class="note" aria-label="Note">
+        <p>The Copilot behaviour is described in <a href="https://github.com/microsoft/vscode/issues/276546">microsoft/vscode#276546</a> and was added in <a href="https://github.com/microsoft/vscode/commit/de441dc178462184fb8772bfff47d325f752bf3e">this commit</a>. It uses the proposed <code>env.power</code> API, which Marketplace extensions can’t use.</p>
+      </aside>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Workaround</th><th scope="col">The catch</th></tr></thead>
+          <tbody>
+            <tr><td>Change the power settings</td><td>Affects everything, all the time. It’s easy to forget to change back, and then the laptop never sleeps and cooks in your bag. IT often locks these settings anyway.</td></tr>
+            <tr><td>A mouse jiggler (app or USB dongle)</td><td>It pretends to be you, which also defeats your screen lock. Many workplaces don’t allow them.</td></tr>
+            <tr><td><code>caffeinate</code>, PowerToys Awake, Amphetamine</td><td>Good tools, but each is separate, manual and works on one OS only. You have to remember to start them, and to stop them.</td></tr>
+            <tr><td>The sleep blocker built into Copilot</td><td>Since February 2026, Copilot in VS Code blocks sleep while a Copilot request is in progress and lets go two minutes after it finishes. It doesn’t cover long tool runs between requests, agents that run in the terminal (Claude Code, Codex, Copilot CLI, Gemini CLI) or other chat extensions.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="page" aria-labelledby="fix">
+      <p class="kicker">The fix</p>
+      <h2 id="fix" class="section-title">Ask the OS properly, and let go cleanly</h2>
+      <p>Agent Keep-Awake uses the supported method on each operating system to say <em>“don’t sleep right now”</em>. It holds that request while VS Code is open and releases it the moment VS Code isn’t. It was built around a few rules:</p>
+      <ul class="plain">
+        <li><strong>About 0% CPU.</strong> A tiny helper that ships with your OS sits waiting on a pipe. There’s no polling, no timer and no network access.</li>
+        <li><strong>Nothing to undo.</strong> It never changes power settings, so a crash can’t leave you with a laptop that won’t sleep.</li>
+        <li><strong>When VS Code goes, the block goes.</strong> If VS Code quits or crashes, the helper notices and exits, and the OS drops the request. The tests hard-kill the owning process on Windows, macOS and Linux to prove it.</li>
+        <li><strong>Your screen still locks.</strong> Only the system is kept awake. The display sleeps as usual unless you ask otherwise.</li>
+        <li><strong>Closing the lid still means sleep.</strong> That’s an explicit choice, so it’s respected.</li>
+        <li><strong>No dependencies and no telemetry.</strong> It’s a few hundred lines of JavaScript you can read in one sitting.</li>
+      </ul>
+
+      <h3>What it uses on each OS</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">OS</th><th scope="col">Mechanism</th><th scope="col">See it yourself</th></tr></thead>
+          <tbody>
+            <tr><td>Windows</td><td><code>SetThreadExecutionState</code>, called from the built-in Windows PowerShell. Nothing is compiled or written to disk.</td><td><code>powercfg /requests</code></td></tr>
+            <tr><td>macOS</td><td><code>caffeinate -i -w &lt;pid&gt;</code>, tied to VS Code’s lifetime</td><td><code>pmset -g assertions</code></td></tr>
+            <tr><td>Linux</td><td><code>systemd-inhibit</code> and, on GNOME, <code>gnome-session-inhibit</code></td><td><code>systemd-inhibit --list</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="numbers">Measured on a Windows 11 laptop over ten minutes: after start-up, the helper used <strong>0.05 seconds of CPU in total</strong> (under 0.01% of one core) and about <strong>7 MB of memory</strong>. Starting it takes about a second, once. The extension itself never polls, and in the default mode it doesn’t listen for any activity events.</p>
+    </section>
+
+    <section class="page" aria-labelledby="smarter">
+      <p class="kicker">Optional</p>
+      <h2 id="smarter" class="section-title">Smarter, if you want it</h2>
+      <p>By default it keeps the machine awake whenever VS Code is open: simple and predictable. If you leave VS Code open all day and want the laptop to sleep once the agents are done, switch on <a href="usage.html#modes">activity mode</a>. The machine then stays awake while files are changing or a terminal command, task or debug session is running, plus 30 minutes, and then lets it sleep.</p>
+    </section>
+
+    <section class="page" aria-labelledby="get">
+      <p class="kicker">Get it</p>
+      <h2 id="get" class="section-title">Two minutes, then forget about it</h2>
+      <ol>
+        <li>Download the <code>.vsix</code> from the <a href="https://github.com/apkola29/agent-keep-awake/releases/latest">latest release</a>.</li>
+        <li>Run <code>code --install-extension agent-keep-awake-1.0.0.vsix</code>, or use <em>Extensions → … → Install from VSIX…</em></li>
+        <li>Look for the cup in the status bar. That’s it.</li>
+      </ol>
+      <div class="actions">
+        <a class="button" href="https://github.com/apkola29/agent-keep-awake/releases/latest">Download the extension</a>
+        <a class="more" href="usage.html">Read the usage guide&nbsp;→</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page">
+    <div class="footer wide">
+      <p>Agent Keep-Awake is MIT licensed. <a href="https://github.com/apkola29/agent-keep-awake">Source on GitHub</a> · <a href="https://github.com/apkola29/agent-keep-awake/issues">Report an issue</a></p>
+      <p>Made because a laptop went to sleep in the middle of a subagent run one time too many.</p>
+    </div>
+  </footer>
+</body>
+</html>

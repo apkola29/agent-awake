@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usage guide: Agent Keep-Awake for VS Code</title>
+  <meta name="description" content="How to install and use Agent Keep-Awake: status bar states, commands, settings, activity mode, remote development, checking that it works, and troubleshooting.">
+  <link rel="canonical" href="https://apkola29.github.io/agent-keep-awake/usage.html">
+  <meta property="og:title" content="Agent Keep-Awake usage guide">
+  <meta property="og:description" content="Install, use and troubleshoot the VS Code extension that keeps your computer awake while AI agents work.">
+  <meta property="og:type" content="article">
+  <meta name="theme-color" content="#1b2133">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231b2133'/%3E%3Cpath d='M3.5 6.5h7v3.2a2.8 2.8 0 0 1-2.8 2.8H6.3a2.8 2.8 0 0 1-2.8-2.8z' fill='%23f2e9da'/%3E%3Cpath d='M10.5 7.4h.6a1.3 1.3 0 0 1 0 2.6h-.8' fill='none' stroke='%23f2e9da' stroke-width='1.1'/%3E%3Cpath d='M6 3.2c-.5.6.5 1.1 0 1.8M8.2 3.2c-.5.6.5 1.1 0 1.8' fill='none' stroke='%23e3964a' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="page">
+    <div class="masthead wide">
+      <a class="name" href="./">Agent Keep-Awake</a>
+      <nav aria-label="Site">
+        <a href="./">Why</a>
+        <a href="usage.html" aria-current="page">Guide</a>
+        <a href="https://github.com/apkola29/agent-keep-awake">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page" aria-labelledby="title">
+      <div class="hero wide">
+        <h1 id="title">Usage guide</h1>
+        <p class="lede">Install it, look for the cup, carry on. This page covers everything else: modes, settings, remote setups, checking that it works, and what to do when it doesn’t.</p>
+      </div>
+      <nav aria-label="On this page">
+        <ol class="toc">
+          <li><a href="#install">Install</a></li>
+          <li><a href="#status">What the status bar shows</a></li>
+          <li><a href="#toggle">Turning it off and on</a></li>
+          <li><a href="#modes">Choosing a mode</a></li>
+          <li><a href="#settings">Settings</a></li>
+          <li><a href="#remote">Remote development</a></li>
+          <li><a href="#verify">Checking that it works</a></li>
+          <li><a href="#limits">Good to know</a></li>
+          <li><a href="#trouble">Troubleshooting</a></li>
+          <li><a href="#uninstall">Uninstalling</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ol>
+      </nav>
+    </section>
+
+    <section class="page" aria-labelledby="install">
+      <h2 id="install">Install</h2>
+      <aside class="note" aria-label="Note">
+        <p>Requires VS Code 1.93 or newer, or an editor based on it, such as Cursor, Windsurf or VSCodium. Works on Windows 10/11, macOS and Linux desktops.</p>
+      </aside>
+      <ol>
+        <li>Download <code>agent-keep-awake-1.0.0.vsix</code> from the <a href="https://github.com/apkola29/agent-keep-awake/releases/latest">latest release</a>.</li>
+        <li>Install it in either of these ways:
+          <ul>
+            <li>From a terminal: <code>code --install-extension agent-keep-awake-1.0.0.vsix</code> (use <code>cursor</code>, <code>windsurf</code> or <code>codium</code> for those editors).</li>
+            <li>In the editor: open the Extensions view, click the <kbd>…</kbd> menu, choose <strong>Install from VSIX…</strong> and pick the file.</li>
+          </ul>
+        </li>
+        <li>A coffee cup appears at the right-hand end of the status bar. You’re done: from now on your computer won’t go to sleep while VS Code is open.</li>
+      </ol>
+    </section>
+
+    <section class="page" aria-labelledby="status">
+      <h2 id="status">What the status bar shows</h2>
+      <p>Hover over the icon for a short explanation and quick links. Each state has its own icon, so you don’t need to tell them apart by colour.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Icon</th><th scope="col">State</th><th scope="col">What it means</th></tr></thead>
+          <tbody>
+            <tr><td>Cup</td><td>Awake</td><td>Your computer is being kept awake. Clicking it turns keep-awake off.</td></tr>
+            <tr><td>Dimmed cup</td><td>Watching</td><td>Activity mode only. Nothing is happening right now, so sleep is allowed. It switches to <em>Awake</em> as soon as something happens.</td></tr>
+            <tr><td>Slashed circle</td><td>Off</td><td>Keep-awake is turned off and your computer sleeps normally. Clicking it turns keep-awake back on.</td></tr>
+            <tr><td>Warning triangle</td><td>Problem</td><td>The OS helper couldn’t start. Clicking it shows why. See <a href="#trouble">Troubleshooting</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="page" aria-labelledby="toggle">
+      <h2 id="toggle">Turning it off and on</h2>
+      <p>Click the icon. That saves <code>agentKeepAwake.enabled</code> in your user settings, so every VS Code window follows along and the choice survives restarts.</p>
+      <p>The same actions are in the Command Palette (<kbd>Ctrl+Shift+P</kbd>, or <kbd>Cmd+Shift+P</kbd> on a Mac). Type <em>Agent Keep-Awake</em> to find:</p>
+      <ul class="plain">
+        <li><strong>Toggle On/Off</strong></li>
+        <li><strong>Turn On (Keep Machine Awake)</strong></li>
+        <li><strong>Turn Off (Allow Sleep)</strong></li>
+        <li><strong>Show Status</strong>: what it’s doing right now, and which OS mechanism it uses</li>
+        <li><strong>Show Log</strong>: the extension’s log, useful when something goes wrong</li>
+      </ul>
+      <p>You can bind any of these to a keyboard shortcut in <em>Keyboard Shortcuts</em>.</p>
+    </section>
+
+    <section class="page" aria-labelledby="modes">
+      <h2 id="modes">Choosing a mode</h2>
+      <aside class="note" aria-label="Note">
+        <p>Which should you pick? If you’re not sure, keep the default. <strong>Always</strong> can’t miss anything. <strong>Activity</strong> saves battery if VS Code stays open after the work is done.</p>
+      </aside>
+      <h3>Always (default)</h3>
+      <p>The computer stays awake the whole time VS Code is open. It’s the simplest and most dependable option, because an agent that’s thinking quietly for twenty minutes is covered too.</p>
+      <h3>Activity</h3>
+      <p>The computer stays awake only while something is happening in that VS Code window, then for <code>agentKeepAwake.activityTimeoutMinutes</code> (default 30) after the last sign of activity. These count as activity:</p>
+      <ul class="plain">
+        <li>Edits to documents and notebooks, whether you or an agent made them.</li>
+        <li>Files changing on disk in the workspace, for example when a CLI agent such as Claude Code or Codex writes them. Changes inside <code>.git</code> are ignored, so routine git housekeeping doesn’t keep you awake.</li>
+        <li>A terminal command that is still running. This needs VS Code’s shell integration, which is on by default for bash, zsh, fish and PowerShell. A CLI agent running in the terminal counts as one long command.</li>
+        <li>A running task or debug session. Background (watch) tasks count only when they start, because they never finish.</li>
+      </ul>
+      <p>Turn it on with <code>"agentKeepAwake.mode": "activity"</code>, or search for <em>Agent Keep-Awake</em> in the Settings editor.</p>
+    </section>
+
+    <section class="page" aria-labelledby="settings">
+      <h2 id="settings">Settings</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Setting</th><th scope="col">Default</th><th scope="col">Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>agentKeepAwake.enabled</code></td><td><code>true</code></td><td>The main switch. Clicking the status bar icon changes it.</td></tr>
+            <tr><td><code>agentKeepAwake.mode</code></td><td><code>"always"</code></td><td><code>"always"</code> or <code>"activity"</code>; see <a href="#modes">Choosing a mode</a>.</td></tr>
+            <tr><td><code>agentKeepAwake.activityTimeoutMinutes</code></td><td><code>30</code></td><td>Activity mode only: how long to stay awake after the last activity (1–1440).</td></tr>
+            <tr><td><code>agentKeepAwake.keepDisplayOn</code></td><td><code>false</code></td><td>Also keep the screen on. Leave it off to let the display sleep and lock as usual while the computer keeps working.</td></tr>
+            <tr><td><code>agentKeepAwake.showStatusBarItem</code></td><td><code>true</code></td><td>Show the icon in the status bar. Keep-awake still works when it’s hidden.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Example <code>settings.json</code> for a battery-conscious laptop:</p>
+<pre><code>{
+  "agentKeepAwake.mode": "activity",
+  "agentKeepAwake.activityTimeoutMinutes": 20
+}</code></pre>
+    </section>
+
+    <section class="page" aria-labelledby="remote">
+      <h2 id="remote">Remote development</h2>
+      <p>Agent Keep-Awake runs on your <strong>local</strong> computer by default, even in Remote-SSH, WSL and Dev Containers, because that’s the laptop that would fall asleep and drop the connection. The remote side needs nothing.</p>
+      <p>If you use VS Code <strong>in a browser</strong>, for example through a Remote Tunnel, there’s no local side to run on, so it runs on the remote machine and keeps that machine awake. That suits a desktop at home that you reach from somewhere else.</p>
+      <p>To keep the remote machine awake instead of your local one, add this to your user settings:</p>
+<pre><code>"remote.extensionKind": {
+  "apkola29.agent-keep-awake": ["workspace"]
+}</code></pre>
+      <p>The tooltip on the icon always tells you which machine it is keeping awake.</p>
+    </section>
+
+    <section class="page" aria-labelledby="verify">
+      <h2 id="verify">Checking that it works</h2>
+      <p>The quickest check is to hover over the cup, or run <strong>Agent Keep-Awake: Show Status</strong>. To see it from the operating system’s side:</p>
+      <h3>Windows</h3>
+      <p>In a terminal opened as administrator:</p>
+<pre><code>powercfg /requests</code></pre>
+      <p>Under <code>SYSTEM:</code> you’ll see a <code>[PROCESS]</code> line ending in <code>powershell.exe</code>. That’s the helper. With <code>keepDisplayOn</code> it also appears under <code>DISPLAY:</code>.</p>
+      <h3>macOS</h3>
+<pre><code>pmset -g assertions | grep caffeinate</code></pre>
+      <p>Look for <code>PreventUserIdleSystemSleep</code> owned by <code>caffeinate</code>.</p>
+      <h3>Linux</h3>
+<pre><code>systemd-inhibit --list</code></pre>
+      <p>Look for <em>VS Code (Agent Keep-Awake)</em> with <code>sleep</code> in the <em>What</em> column.</p>
+    </section>
+
+    <section class="page" aria-labelledby="limits">
+      <h2 id="limits">Good to know</h2>
+      <ul class="plain">
+        <li><strong>Closing the lid or pressing the power button still puts the computer to sleep.</strong> Those are explicit choices, so the OS doesn’t let apps override them. For lid-closed work, set your OS’s lid action to “do nothing”, or plug in an external display.</li>
+        <li><strong>Your screen still turns off and locks.</strong> Only the system is kept awake, unless you turn on <code>keepDisplayOn</code>.</li>
+        <li><strong>Battery.</strong> A computer that’s awake uses power. For long runs on a laptop, plug in, or use activity mode so it can sleep afterwards.</li>
+        <li><strong>Several windows.</strong> Each VS Code window holds its own request, and the computer stays awake until the last one lets go.</li>
+        <li><strong>VS Code closes or crashes.</strong> The helper exits by itself and the OS drops the request. Nothing is left behind.</li>
+        <li><strong>Copilot’s own blocker.</strong> Recent Copilot versions block sleep while a Copilot request is in progress. The two don’t conflict; the OS simply counts both.</li>
+      </ul>
+    </section>
+
+    <section class="page" aria-labelledby="trouble">
+      <h2 id="trouble">Troubleshooting</h2>
+      <p>Start with <strong>Agent Keep-Awake: Show Log</strong>. It records which helper started, its process ID, and any error.</p>
+      <h3>The icon shows a warning</h3>
+      <ul class="plain">
+        <li><strong>Windows, “Constrained Language Mode”.</strong> Your organisation has locked down PowerShell, and that blocks the call to the Windows power API. Ask IT, or use the keep-awake tool they approve.</li>
+        <li><strong>Windows, “powershell.exe was not found”.</strong> Windows PowerShell has been removed. If PowerShell 7 is installed and <code>pwsh</code> is on your <code>PATH</code>, it’s used instead.</li>
+        <li><strong>Linux, “Neither systemd-inhibit nor gnome-session-inhibit was found”.</strong> Your desktop uses neither systemd nor GNOME’s session manager, so it isn’t supported yet. Please <a href="https://github.com/apkola29/agent-keep-awake/issues">open an issue</a> and name your distribution and desktop.</li>
+      </ul>
+      <h3>The computer still went to sleep</h3>
+      <ul class="plain">
+        <li>Was the lid closed or the power button pressed? Both override keep-awake on purpose.</li>
+        <li>In activity mode, was there a long, quiet stretch (no edits, no running commands) longer than the timeout? Raise <code>activityTimeoutMinutes</code>, or use <code>always</code> mode.</li>
+        <li>Some company policies force sleep or hibernation regardless of what apps ask. <code>powercfg /requestsoverride</code> (Windows) or a policy can also make the OS ignore requests. Check with IT.</li>
+        <li>Check the OS side as described in <a href="#verify">Checking that it works</a> while VS Code is open.</li>
+      </ul>
+    </section>
+
+    <section class="page" aria-labelledby="uninstall">
+      <h2 id="uninstall">Uninstalling</h2>
+      <p>Uninstall it from the Extensions view, or run <code>code --uninstall-extension apkola29.agent-keep-awake</code>. It never changes system settings, so there is nothing to clean up. The helper stops when the extension does.</p>
+    </section>
+
+    <section class="page" aria-labelledby="faq">
+      <h2 id="faq">FAQ</h2>
+      <details>
+        <summary>Does it move my mouse or press keys?</summary>
+        <p>No. It makes the same supported request a video player or presentation app makes, through each OS’s power management API.</p>
+      </details>
+      <details>
+        <summary>Does it change my power plan or energy settings?</summary>
+        <p>No. It holds a temporary request that the OS drops automatically when the helper exits, so there’s nothing to restore.</p>
+      </details>
+      <details>
+        <summary>How much CPU and memory does it use?</summary>
+        <p>Effectively none. The helper waits on a pipe without polling. Measured on Windows 11 over ten minutes, it used 0.05 seconds of CPU in total (under 0.01% of one core) and about 7 MB of memory. The extension itself has no timers in the default mode and doesn’t listen for activity events unless you choose activity mode.</p>
+      </details>
+      <details>
+        <summary>Does it send any data anywhere?</summary>
+        <p>No. It has no telemetry and makes no network requests. The source is a few hundred lines of JavaScript with no dependencies.</p>
+      </details>
+      <details>
+        <summary>Will my screen still lock?</summary>
+        <p>Yes, unless you turn on <code>keepDisplayOn</code>. Locking and screen-off don’t stop your agents; only sleep does.</p>
+      </details>
+      <details>
+        <summary>Why does it need PowerShell on Windows?</summary>
+        <p>The Windows power API can only be called from native code. Rather than ship a binary of its own, the extension calls the API through Windows PowerShell, a signed Microsoft program that’s already installed. Nothing is compiled, downloaded or written to disk. You can read the exact one-line script in <code>src/keepAwake.js</code>.</p>
+      </details>
+      <details>
+        <summary>Does it work with Claude Code, Codex, Gemini CLI or Copilot CLI in the terminal?</summary>
+        <p>Yes. In the default mode the computer stays awake whatever you run. In activity mode, a CLI agent running in VS Code’s integrated terminal counts as activity while it runs, and so do the files it writes.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="page">
+    <div class="footer wide">
+      <p>Agent Keep-Awake is MIT licensed. <a href="https://github.com/apkola29/agent-keep-awake">Source on GitHub</a> · <a href="https://github.com/apkola29/agent-keep-awake/issues">Report an issue</a> · <a href="./">Why it exists</a></p>
+    </div>
+  </footer>
+</body>
+</html>
