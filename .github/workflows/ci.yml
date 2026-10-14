@@ -1,9 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -22,9 +19,9 @@ jobs:
         include:
           # Oldest supported VS Code (engines.vscode).
           - os: ubuntu-latest
-            vscode: 1.93.0
+            vscode: 1.95.0
           - os: windows-latest
-            vscode: 1.93.0
+            vscode: 1.95.0
     steps:
       - uses: actions/checkout@v4
 
@@ -58,21 +55,3 @@ jobs:
         run: npm run test:integration
         env:
           VSCODE_TEST_VERSION: ${{ matrix.vscode }}
-
-  package:
-    name: Package VSIX
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Package
-        run: npx --yes @vscode/vsce@latest package --out agent-keep-awake.vsix
-      - name: List packaged files
-        run: npx --yes @vscode/vsce@latest ls
-      - uses: actions/upload-artifact@v4
-        with:
-          name: agent-keep-awake-vsix
-          path: agent-keep-awake.vsix

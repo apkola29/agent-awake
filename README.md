@@ -1,102 +1,305 @@
-# Agent Keep-Awake
+# Agent Awake
 
-**Stops your computer from going to sleep while AI agents work in VS Code.**
+**Click the ready coffee cup before a long run. Click the green cup when you are done.**
 
-You start a long agent run (Copilot agent mode, Claude Code, Codex, a swarm of subagents) and walk away. Thirty minutes later your laptop decides nobody is there and goes to sleep. The agent freezes halfway through. Agent Keep-Awake prevents that.
+Agent Awake requests local system and screen activity while you explicitly
+enable it. Use your normal Copilot, Claude, build, or other application;
+no replacement chat, model account, or `@awake` prompt is needed.
+Opening VS Code starts **Off**. The default active session has **no expiry**,
+but ends when you click again, turn Off, or close/reload its owning window.
 
-- **No fuss.** Install it and you're done. A coffee cup in the status bar shows it's working; click it to turn it off.
-- **Ultra lightweight.** No runtime dependencies. It never polls; the helper process just waits, using about 0% CPU and a few MB of memory.
-- **Safe.** It never changes your power settings, never moves your mouse, and doesn't stop your screen from locking. If VS Code quits or crashes, the block goes away with it.
-- **Works everywhere.** Windows, macOS and Linux. Works the same in Remote-SSH, WSL and Dev Containers, where it keeps *your* machine awake.
+**Windows limitation:** the screen stays on while enabled. Use AC power.
+Explicit Sleep, lid closure, lock/battery/company policies can override requests.
+Green means a native request was acknowledged, not immunity from forced sleep.
+Automatic Copilot activity detection is **not implemented** in this release.
 
-[Why this exists](https://apkola29.github.io/agent-keep-awake/) · [Usage guide](https://apkola29.github.io/agent-keep-awake/usage.html) · [Changelog](CHANGELOG.md)
+The public name is Agent Awake. The original extension ID
+`apkola29.agent-keep-awake` and `agentKeepAwake.*` settings/commands are retained
+so existing installations receive an update instead of a second extension.
+Deployment is gated on real functional and hardware validation.
 
-## Install
+## Use it in VS Code
 
-1. Download `agent-keep-awake-<version>.vsix` from the [latest release](https://github.com/apkola29/agent-keep-awake/releases/latest).
-2. Install it:
-   - **Command line:** `code --install-extension agent-keep-awake-1.0.0.vsix`
-   - **Or in VS Code:** Extensions view → `...` menu → **Install from VSIX...**
+Requirements: **desktop VS Code 1.95 or newer**. Manual power control needs
+no hooks, model account, API key, or subscription. Windows is the validated
+native-request target; macOS/Linux protection remains explicitly unverified.
 
-This also works in Cursor, Windsurf, VSCodium and other VS Code-based editors (version 1.93 or newer).
+1. Install the local preview VSIX through **Extensions: Install from VSIX...**
+   in the Command Palette, or launch **Run Extension** with F5 from this project.
+2. **Click `@awake ready` once.** No picker or confirmation is needed.
+3. On Windows, wait for the acknowledged **green cup**, then use normal Copilot,
+   Claude, or any other application. No `@awake` prefix or model replacement is required.
+4. **Click the green cup again** when done, or run **Agent Awake: Turn Off**.
+   Off disables only this extension's protection and never cancels native Copilot.
 
-## Use
+The coffee click uses **Duration (Hours)**, which defaults to **0** (no expiry).
+Open **Settings**, search `@ext:apkola29.agent-keep-awake`, and set the duration:
 
-There's nothing to set up. After install you'll see a cup in the status bar (bottom right):
-
-| Status bar | Meaning |
+| Value | Session |
 |---|---|
-| `☕` cup | Your computer is being kept awake. |
-| Dimmed `☕` cup | *Activity mode* only: watching for activity. Sleep is allowed until something happens. |
-| `⊘` slashed circle | Turned off. Your computer sleeps normally. |
-| `⚠` warning | Something stopped it from working. Click for details. |
+| `0` | Live-forever mode: until you turn it off or close/reload its VS Code window |
+| `0.5` | 30 minutes |
+| `1` | 1 hour |
+| `2`, `4`, `8`, etc. | That many hours, up to 24 |
 
-Click the cup to turn it off or on. Hover over it for details.
+### What the cup looks like
 
-**Commands** (`Ctrl+Shift+P` / `Cmd+Shift+P`, then type *Agent Keep-Awake*): **Toggle On/Off**, **Turn On**, **Turn Off (Allow Sleep)**, **Show Status**, **Show Log**.
+| Off: click to start | On: click to stop |
+|---|---|
+| ![Neutral coffee cup with the label @awake ready](docs/images/awake-ready.png) | ![Compact green coffee cup without the ready label](docs/images/awake-on.png) |
 
-## Settings
+These supplied UI illustrations are cropped to the control. They show its
+appearance, not evidence that the latest build passed an unattended sleep test.
+The tooltip and screen-reader label also announce the state; color alone is
+not the only indication.
 
-| Setting | Default | What it does |
-|---|---|---|
-| `agentKeepAwake.enabled` | `true` | Main switch. Clicking the cup changes this. |
-| `agentKeepAwake.mode` | `"always"` | `always`: stay awake the whole time VS Code is open. `activity`: stay awake only while something is happening (see below). |
-| `agentKeepAwake.activityTimeoutMinutes` | `30` | In `activity` mode, how long to stay awake after the last activity. |
-| `agentKeepAwake.keepDisplayOn` | `false` | Also keep the screen on. By default the screen can still turn off and lock while the computer keeps running. |
-| `agentKeepAwake.showStatusBarItem` | `true` | Show the cup in the status bar. |
+You can also run **Agent Awake: Configure Duration (Hours)** from the
+Command Palette. The setting applies to the **next** session only; changing it
+does not silently extend, shorten, or disable a session already running.
+The duration is an application setting, not a workspace-file override.
 
-**Activity mode** suits people who leave VS Code open all day and want the laptop to sleep once the agents are done. The computer stays awake while any of these is happening, and for `activityTimeoutMinutes` afterwards:
+For a one-off duration without changing the default, use **Agent Awake:
+Choose Duration for a Timed Session**: 30 minutes, 1, 2, 4, or 8 hours,
+or **Until I turn it off**.
+Live-forever mode has no expiry timer, but it never starts by itself or survives
+closing/reloading the window.
 
-- a file or document is edited, including by an agent or a CLI tool;
-- a terminal command is running;
-- a task or debug session is running.
+**Manual mode does not detect chat completion.** Pressing Stop in a chat does
+not switch Agent Awake off. Click the green cup or use **Agent Awake: Turn Off**.
+Selecting Off never aborts or modifies Copilot work.
 
-## Good to know
+| Coffee status | Meaning |
+|---|---|
+| Neutral cup with **@awake ready** | Ready to activate, but not preventing sleep |
+| Spinner **Keep Awake: Starting...** | Waiting for the OS to accept protection; not yet confirmed |
+| Green cup only, with no ready text | The OS helper has acknowledged active protection; the item shrinks so adjacent icons shift |
+| Warning **Keep Awake: Failed** | Protection could not start or was lost; sleep is allowed |
+| **Auto: Unavailable** | No supported native-hook profile has been verified; no power hold |
+| **Keep Awake: Unverified** on macOS/Linux | A helper may be running, but this build has no native acknowledgement proof; never shown as confirmed green |
 
-- **Closing the lid or pressing the power button still puts the computer to sleep.** That's your explicit choice, and it's respected. To keep working with the lid closed, change your OS lid setting or use an external display.
-- **Your screen still locks.** Only the system is kept awake, not the display, unless you turn on `keepDisplayOn`.
-- **Several VS Code windows** each hold their own request. The computer stays awake until the last one lets go.
-- **On battery** the computer keeps running too, so plug in for long runs.
+The tooltip explains **Off**, **Manual**, or **Auto**, confirmed protection,
+owner count, and any deadline. Click to turn your configured session on or off.
+Hover to see expiry date/time, or **until you turn it off**.
+The screen-reader label
+also announces On or Off; green follows the theme's success color. Opening another window
+does not activate it. Closing/reloading the owning window clears its session.
+There is no persistent always-on setting or editor-activity heuristic.
+Old `enabled`, `mode`, and activity-timeout settings are ignored.
+**Show Status** gives a short plain-English explanation; **Show Log** shows
+technical lifecycle diagnostics. Hiding the icon does not stop an active session.
 
-## How it works
+## Auto - Copilot activity: unavailable in this preview
 
-Each OS has a supported way to say "don't sleep right now". Agent Keep-Awake asks for it through a tiny helper that ships with your OS. Nothing is downloaded or compiled, and no settings are written.
+Supported native hooks exist, but complete terminal/cancellation behavior and
+window-instance routing have not been verified for the current Local or Copilot
+Agent Host runtime. A `Stop` hook may require another turn; it is not proof that
+work ended. Some session and operation identifiers are optional or absent.
 
-| OS | Mechanism | See it yourself |
-|---|---|---|
-| Windows | `SetThreadExecutionState(ES_CONTINUOUS \| ES_SYSTEM_REQUIRED)`, called from the built-in Windows PowerShell | `powercfg /requests` (admin) |
-| macOS | `/usr/bin/caffeinate -i -w <VS Code pid>` | `pmset -g assertions` |
-| Linux | `systemd-inhibit --what=sleep` (logind, KDE…) and `gnome-session-inhibit --inhibit suspend` (GNOME) | `systemd-inhibit --list` |
+Selecting Auto from Off shows **Auto: Unavailable**, with no power helper,
+monitoring timer, local IPC endpoint, or hook configuration changes. Attempting
+unavailable Auto while Manual is active preserves that hold and explains why.
+Choose Keep awake when you need reliable explicit ownership.
 
-The helper waits on its input pipe (or, with `caffeinate -w`, on the VS Code process itself). If VS Code exits or crashes, the helper exits too, and the OS drops the request. CI checks this on all three OSes by killing the owning process.
+The old `@awake` participant is no longer contributed or bundled. No prompts
+are rerouted, no model is selected, and no tool permission is changed. Its
+historical regression tests remain in the development repository only.
 
-## Remote development
+## What is protected
 
-The extension runs on your **local** machine by default, even in Remote-SSH, WSL and Dev Containers, because that's the laptop that would fall asleep. If you use VS Code in a browser (for example through a Remote Tunnel), it runs on the remote machine instead and keeps that machine awake.
+| Situation | This extension's behavior |
+|---|---|
+| Keep awake | One local hold until Off or owning-window exit; independent of chat/app activity |
+| Timed coffee session | Hold protection until stopped, expired, or its window closes |
+| Live-forever coffee session (`Duration (Hours) = 0`) | No expiry; still releases on Off, window close/reload, or helper failure |
+| Normal Copilot/Claude chat during Manual | Request local sleep protection; read no chat content |
+| Auto with no verified adapter | Unavailable; do not guess activity or acquire power |
+| OS protection unavailable or lost | Clear green; report failure/retry without cancelling native Copilot |
+| Window close, reload, or extension-host exit | Release the helper owned by that window |
+| Ordinary editor activity while Off | No power request |
+| Other windows or applications holding power | Off releases only this extension's window, not another owner's request |
 
-To keep the remote machine awake rather than your local one, add this to your settings:
+## Free and entirely local
 
-```json
-"remote.extensionKind": { "apkola29.agent-keep-awake": ["workspace"] }
-```
+The extension is free and MIT-licensed. Manual controls read no chat content
+and need no sign-in, API key, model access, or subscription. There are no
+production runtime dependencies, listening servers, telemetry, or cloud calls.
+Your normal chat provider keeps its own account, consent, plan, and usage rules;
+this extension neither uses nor bypasses them.
 
-## Troubleshooting
+No personal transcripts, private chat storage, credentials, or provider logs
+are watched. Other chats are not modified. Only maintainers need publication
+credentials; local installation does not.
 
-- **Warning icon:** click it, or run **Agent Keep-Awake: Show Log**, to see why.
-- **Windows, "Constrained Language Mode":** your organisation has locked down PowerShell, and that blocks the power API call. Ask IT, or use their approved keep-awake tool.
-- **Linux:** needs `systemd-inhibit` (systemd) or `gnome-session-inhibit` (GNOME). Desktops that use neither are not supported yet.
+## Security and cleanup boundaries
 
-## Development
+- The coffee control makes no model, network, authentication, or telemetry calls.
+  It starts only a local, platform-native helper with fixed commands and arguments.
+- It opens no listening port, requests no elevation, writes no power plan or
+  registry policy, and never simulates keyboard/mouse input.
+- Manual uses fixed local commands and no workspace execution. Auto requires
+  a separately verified trusted local runtime, which is not enabled here.
+- Settings are application-scoped; workspace files cannot silently choose
+  indefinite protection or hide its control. There is no persistent On setting.
+- Only one coordinator owns the backend. Owner identities include instance,
+  generation and source, with idempotent begin/end and stale-event rejection.
+  Internal mock-adapter tests do not establish native Copilot coverage.
+- Logs contain mode/state/count/deadline diagnostics, never prompts,
+  transcript paths, hook capabilities, credentials, or tool data.
+- Each window owns its helper. Off, expiry and disposal clear its owners/timers.
+  Host exit releases the platform helper. Helper failure clears confirmation,
+  while bounded backend retry may restore a still-desired hold.
+- No native chat is cancelled because power protection fails or is disabled.
+- The packaged runtime contains no LLM client, chat participant, IPC bridge,
+  hook client, hook configuration, or historical chat-processing module.
+
+The earlier optional-chat attachment issue was mitigated in its historical
+implementation; that route is now excluded from the shipped runtime entirely.
+Bounded review and passing tests do not prove all possible defects are absent.
+
+## Lightweight and bounded
+
+- No polling, timers, or helper process while idle.
+- A timed session uses one expiry timer, not a countdown polling loop.
+- Live-forever mode uses no expiry timer. Invalid durations fail visibly
+  instead of silently falling back to an hour or enabling indefinite protection.
+- One small OS helper per active window on Windows/macOS; Linux may use two
+  native inhibitors for desktop compatibility.
+- Windows uses `SetThreadExecutionState`; macOS uses `caffeinate`; Linux uses
+  `systemd-inhibit` and/or `gnome-session-inhibit`.
+- **On Windows the screen stays on while enabled**, using combined system and
+  display activity requests. This is required to address idle Modern Standby
+  on machines where system-only requests allow screen-off standby entry.
+  macOS/Linux continue to use system-only protection. Power plans are never edited.
+- Protection must start within 10 seconds or the request fails visibly.
+- No model/token/tool polling, transcript watcher, or IPC service is needed.
+- Native backend readiness on macOS/Linux currently uses process survival,
+  not a proven native assertion; the UI must say Unverified rather than green.
+
+Sleep requests cannot override every OS policy, forced shutdown, or explicit
+sleep action. On Linux, a logind block inhibitor can also affect lid/power-button
+suspend. Linux permission/session behavior still needs native validation.
+
+### Windows Modern Standby and the reported idle failure
+
+The earlier system-only build acknowledged a request while this laptop still
+entered Modern Standby at its three-minute idle timeout. Checking acknowledgement
+bits was not sufficient proof of unattended protection.
+
+The corrected Windows route requests **both system and display activity**.
+The screen-on tradeoff is explicit: use AC power for dependable long runs.
+Windows battery policy, lid/power-button sleep, explicit Sleep, and company
+policies can still override requests. The extension does not bypass lock
+screens, simulate input, change registry/power-plan policy, or need admin rights.
+Green indicates an acknowledged live request, not immunity to forced OS actions.
+
+The native idle test below additionally checks actual Kernel-Power sleep/
+Modern Standby events and the measured last-input interval beyond the existing
+idle policy. Input during the test makes it inconclusive, not a passed soak.
+
+## Local testing and UAT
 
 ```sh
-npm install
-npm run typecheck        # strict type-check of the JavaScript sources
-npm test                 # unit tests (node:test)
-npm run test:os          # real OS verification: holds a request, checks the OS sees it, crash-tests cleanup
-npm run test:integration # runs inside a downloaded, isolated VS Code
-npm run package          # builds the .vsix
+npm run typecheck
+npm test
+npm run test:os
+npm run test:integration
 ```
 
-## License
+For a real unattended Windows test on AC power:
 
-[MIT](LICENSE)
+```powershell
+.\test\os\verify-idle-windows.ps1 -Seconds 240
+```
+
+To allow a bounded wait for four minutes of genuine no-input time, use
+`-WaitForIdleSeconds 600`. The test records the protected interval, measured
+idle time, end-of-test AC status, and exact owned-helper release/cleanup times.
+It checks real sleep events before classifying a power-source change as
+inconclusive, so standby evidence cannot be hidden by that change.
+
+The test must exceed the machine's current finite sleep/display idle timeouts.
+It makes no power-plan changes, injects no input, checks for sleep/Modern
+Standby events, and releases only its own helper afterward. It requires
+PowerShell 7 and Node, and is not a guarantee for battery or forced-sleep policy.
+
+Integration tests run the actual power-control commands in a separate VS Code
+profile. They check native holds, Off, timed/no-expiry behavior, settings,
+rapid transitions, truthful unavailable Auto, failures and editor shutdown.
+No model is invoked. These are **not** evidence that native Copilot Auto or
+the unattended laptop sleep problem has passed UAT.
+Unit tests have a 5-second per-test deadline. Integration runs have an 8-minute
+watchdog (`VSCODE_TEST_RUN_TIMEOUT_MS` can override it for CI or timeout
+verification). Failure cleanup targets only that runner's descendants and
+recorded helper PIDs with matching process-birth identities. Windows runs with
+an existing system/display power hold fail as **inconclusive**, not as passed
+acquire/release verification.
+
+For Windows UAT, click the actual ready cup. Verify the green
+cup and confirmed Manual tooltip. Continue your normal prompt; click again when
+done and verify the neutral ready label returns with no owned helper.
+Check explicit timed expiry and the 0-hour no-expiry choice separately.
+Auto must remain clearly unavailable and must not silently stop an active
+Manual hold. Opening the editor without clicking the control must stay inactive.
+
+Installing an update does not replace the handler in an already-running window.
+If clicking a ready cup only shows the old scope message, that window is using
+the earlier build. Use **Developer: Reload Window** when its agent work is done.
+The extension's own log records the loaded version so this can be verified,
+rather than guessing from the installed Extensions list.
+
+### Independent extensions, shared VS Code host
+
+Agent Awake has no dependency on AI Credits Usage Tracker and never
+activates, refreshes, or restarts it. Their commands, settings, and owned
+helpers/workers are separate. Agent Awake's Off stops its own power ownership;
+it does not reload VS Code or another extension.
+
+**Developer: Reload Window** and **Developer: Restart Extension Host** are
+VS Code-wide lifecycle actions for that window. They restart the shared
+extension host and consequently reload other enabled extensions, including
+AI Credits. They are not a restart of Agent Awake alone. The same shared-host
+boundary means a host crash can affect both; independent features do not
+imply separate crash-isolated extension-host processes.
+
+For ordinary use, click the coffee control to turn it **On** or **Off**;
+no reload is needed. Reserve a window reload for loading an installed update,
+and do it when active agent work is safe to interrupt.
+
+Native macOS/Linux tests are still required before claiming validated support.
+Linux OS verification uses `busctl` JSON output from logind's `ListInhibitors`
+in `what, who, why, mode, uid, pid` order. It requires JSON-capable `busctl` and
+a reachable logind system bus; malformed or failed queries fail the tests.
+
+## Native Auto evidence gates
+
+Official Local/Copilot hooks are legitimate integration routes; they are not
+universally unusable. Before Auto can be offered as working protection, its
+specific harness must prove request start, final end/cancellation, failure,
+blocked Stop/continuation, silent work, overlap, child ownership and routing
+to the correct local window. A repository path or optional session ID alone
+does not establish that routing.
+
+The Local `Stop` event explicitly means **about to stop**, not inactive.
+Copilot's `agentStop` can also block and force continuation. No short
+silence timeout or arbitrary file activity is used as a substitute.
+The verified profile, metadata-only transport and real native UAT remain
+prerequisites, not shipped features.
+
+Sources:
+[Local hooks reference](https://code.visualstudio.com/docs/agents/reference/hooks-reference),
+[Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference),
+[VS Code extension hosts](https://code.visualstudio.com/api/advanced-topics/extension-host).
+
+## Publication gate
+
+The 1.2.1 candidate is for local validation. An existing Marketplace listing
+uses the stable extension ID above; local source, an installed VSIX, and a
+published update are distinct. GitHub Actions is manual-only, with no automatic
+release workflow. Public updates require functional and genuine idle validation.
+Native Auto and macOS/Linux confirmation remain separately evidence-gated.
+
+License: [MIT](LICENSE).
+
+Windows references:
+[SetThreadExecutionState](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate),
+[power-request limits](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-powersetrequest).

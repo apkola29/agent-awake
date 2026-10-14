@@ -123,6 +123,43 @@ test.describe('buildHelpers', () => {
 });
 
 test.describe('KeepAwake lifecycle', () => {
+  test('release from the starting event prevents all helper spawning', () => {
+    const { ka, sp, clock } = setup();
+    ka.on('change', state => {
+      if (state === 'starting') ka.release();
+    });
+    ka.acquire();
+    assert.equal(ka.state, 'off');
+    assert.equal(sp.children.length, 0);
+    ka.dispose();
+    assert.equal(clock.pending(), 0);
+  });
+
+  test('reentrant acquire with another display option does not spawn stale helpers', () => {
+    const { ka, sp } = setup();
+    ka.on('change', state => {
+      if (state === 'starting' && !ka.display) ka.acquire({ display: true });
+    });
+    ka.acquire({ display: false });
+    assert.equal(sp.children.length, 1);
+    assert.ok(sp.last().args[4].includes('2147483651'));
+    ka.dispose();
+  });
+
+  test('dispose forbids reacquiring from the synchronous off event', () => {
+    const { ka, sp, clock } = setup();
+    ka.acquire();
+    sp.last().spawned().ready();
+    ka.on('change', state => {
+      if (state === 'off') ka.acquire();
+    });
+    ka.dispose();
+    assert.equal(ka.state, 'off');
+    assert.equal(sp.children.length, 1);
+    assert.equal(sp.last().killed, true);
+    assert.equal(clock.pending(), 0);
+  });
+
   test('acquire spawns one hidden helper and turns on after READY', () => {
     const { ka, sp, states } = setup();
     ka.acquire();

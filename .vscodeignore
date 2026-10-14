@@ -2,9 +2,14 @@
 .vscode/**
 .vscode-test/**
 docs/**
+!docs/images/awake-ready.png
+!docs/images/awake-on.png
 node_modules/**
 test/**
+src/chat.js
+IMPLEMENTATION_PLAN.md
 *.vsix
+*.bundle
 tsconfig.json
 package-lock.json
 .gitignore

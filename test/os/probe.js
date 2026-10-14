@@ -17,12 +17,10 @@ const PS = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'Windo
  * @param {string[]} args
  */
 function run(file, args) {
-  try {
-    return execFileSync(file, args, { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000 });
-  } catch (err) {
-    const e = /** @type {any} */ (err);
-    return `${e.stdout || ''}${e.stderr || ''}${e.message || ''}`;
-  }
+  return execFileSync(file, args, {
+    encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000,
+    env: { ...process.env, LC_ALL: 'C', LANG: 'C', SYSTEMD_COLORS: '0' }
+  });
 }
 
 /** @param {number} pid */
@@ -53,33 +51,109 @@ const WIN_QUERY = [
 ].join(';');
 
 /**
- * @param {number[]} [pids] Helper pids to look for (macOS and Linux report requests per process).
+ * @param {number[]} [pids] Omit for a global baseline; provide for helper-specific checks.
+ * Windows reports machine-wide state even when PIDs are provided.
  * @returns {{ system: boolean, display: boolean, raw: string }}
  */
 function probe(pids = []) {
   if (process.platform === 'win32') {
     const out = run(PS, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', WIN_QUERY]).trim();
-    const [status, value] = out.split(/\s+/).map(Number);
-    if (status !== 0 || !Number.isFinite(value)) {
-      return { system: false, display: false, raw: `query failed: ${out}` };
+    const match = /^0\s+(\d+)$/.exec(out);
+    const value = match ? Number(match[1]) : NaN;
+    if (!Number.isInteger(value) || value > 0xffffffff) {
+      throw new Error(`OS execution-state query failed: ${out}`);
     }
     return { system: (value & 1) !== 0, display: (value & 2) !== 0, raw: `SystemExecutionState=0x${value.toString(16).padStart(8, '0')}` };
   }
   if (process.platform === 'darwin') {
     const out = run('pmset', ['-g', 'assertions']);
-    const mine = out.split('\n').filter(l => pids.some(p => l.includes(`pid ${p}(`)));
+    const lines = out.split(/\r?\n/).map(line => line.trim());
+    const summaryIndex = lines.indexOf('Assertion status system-wide:');
+    const ownersIndex = lines.indexOf('Listed by owning process:');
+    if (summaryIndex < 0 || ownersIndex <= summaryIndex) {
+      throw new Error('OS assertion query failed: missing pmset sections');
+    }
+    const summary = lines.slice(summaryIndex + 1, ownersIndex);
+    /** @param {string} name */
+    function readFlag(name) {
+      const entries = summary.filter(entry => entry.split(/\s+/, 1)[0] === name);
+      const match = entries.length === 1 && new RegExp(`^${name}\\s+(\\d+)$`).exec(entries[0]);
+      if (!match || !Number.isSafeInteger(Number(match[1]))) {
+        throw new Error(`OS assertion query failed: invalid ${name} status`);
+      }
+      return Number(match[1]) > 0;
+    }
+    const systemFlag = readFlag('PreventSystemSleep');
+    const idleSystemFlag = readFlag('PreventUserIdleSystemSleep');
+    const displayFlag = readFlag('PreventUserIdleDisplaySleep');
+    const assertions = lines.slice(ownersIndex + 1).filter(line => /^pid\b/.test(line)).map(line => {
+      const match = /^pid\s+(\d+)\(.+\):\s+\[0x[0-9a-fA-F]+\]\s+\d+(?::\d+){1,2}\s+(\S+)(?:\s|$)/.exec(line);
+      const pid = match ? Number(match[1]) : NaN;
+      if (!match || !Number.isInteger(pid) || pid <= 0 || pid > 0xffffffff) {
+        throw new Error('OS assertion query failed: malformed owner assertion');
+      }
+      return { pid, type: match[2], raw: line };
+    });
+    if (!pids.length) {
+      return {
+        system: systemFlag || idleSystemFlag,
+        display: displayFlag,
+        raw: `pmset assertions: system=${Number(systemFlag || idleSystemFlag)}, display=${Number(displayFlag)}`
+      };
+    }
+    const mine = assertions.filter(assertion => pids.includes(assertion.pid));
     return {
-      system: mine.some(l => l.includes('PreventUserIdleSystemSleep')),
-      display: mine.some(l => l.includes('PreventUserIdleDisplaySleep')),
-      raw: mine.map(l => l.trim()).join(' | ') || 'no assertions from helper'
+      system: mine.some(assertion => ['PreventSystemSleep', 'PreventUserIdleSystemSleep'].includes(assertion.type)),
+      display: mine.some(assertion => assertion.type === 'PreventUserIdleDisplaySleep'),
+      raw: mine.map(assertion => assertion.raw).join(' | ') || 'no assertions from helper'
     };
   }
-  const out = run('systemd-inhibit', ['--list', '--no-pager']);
-  const mine = out.split('\n').filter(l => l.includes('Agent Keep-Awake') || pids.some(p => new RegExp(`\\b${p}\\b`).test(l)));
+  // Structured output avoids localized tables and UID/PID ambiguity.
+  const out = run('busctl', [
+    '--system', '--no-pager', '--json=short', 'call',
+    'org.freedesktop.login1', '/org/freedesktop/login1',
+    'org.freedesktop.login1.Manager', 'ListInhibitors'
+  ]);
+  /** @type {unknown} */
+  let reply;
+  try {
+    reply = JSON.parse(out);
+  } catch (error) {
+    throw new Error('OS inhibitor query failed: invalid busctl JSON', { cause: error });
+  }
+  if (reply === null || typeof reply !== 'object' ||
+    !('type' in reply) || reply.type !== 'a(ssssuu)' ||
+    !('data' in reply) || !Array.isArray(reply.data) ||
+    reply.data.length !== 1 || !Array.isArray(reply.data[0])) {
+    throw new Error('OS inhibitor query failed: invalid logind reply');
+  }
+  const inhibitors = reply.data[0].map((/** @type {unknown} */ row) => {
+    if (!Array.isArray(row) || row.length !== 6) {
+      throw new Error('OS inhibitor query failed: invalid inhibitor record');
+    }
+    /** @type {unknown[]} */
+    const values = row;
+    const [what, who, why, mode, uid, pid] = values;
+    if (typeof who !== 'string' || typeof why !== 'string' ||
+      typeof what !== 'string' || typeof mode !== 'string' ||
+      !['block', 'block-weak', 'delay', 'delay-weak'].includes(mode) ||
+      typeof uid !== 'number' || !Number.isInteger(uid) || uid < 0 || uid > 0xffffffff ||
+      typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0 || pid > 0xffffffff) {
+      throw new Error('OS inhibitor query failed: malformed inhibitor fields');
+    }
+    const flags = what.split(':');
+    if (flags.some(flag => !['shutdown', 'sleep', 'idle'].includes(flag) && !/^handle-[a-z]+(?:-[a-z]+)*$/.test(flag))) {
+      throw new Error('OS inhibitor query failed: invalid inhibitor flags');
+    }
+    return { pid, mode, flags };
+  });
+  const mine = pids.length ? inhibitors.filter(inhibitor => pids.includes(inhibitor.pid)) : inhibitors;
+  const blocking = mine.filter(inhibitor => inhibitor.mode === 'block' || inhibitor.mode === 'block-weak');
   return {
-    system: mine.some(l => /\bsleep\b/.test(l)),
-    display: mine.some(l => /\bidle\b/.test(l)),
-    raw: mine.map(l => l.replace(/\s+/g, ' ').trim()).join(' | ') || 'no inhibitors from helper'
+    system: blocking.some(inhibitor => inhibitor.flags.includes('sleep')),
+    display: blocking.some(inhibitor => inhibitor.flags.includes('idle')),
+    raw: mine.map(inhibitor => `pid ${inhibitor.pid}: ${inhibitor.flags.join(':')} (${inhibitor.mode})`).join(' | ') ||
+      (pids.length ? 'no inhibitors from helper' : 'no inhibitors')
   };
 }
 

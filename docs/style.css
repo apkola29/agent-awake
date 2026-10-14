@@ -1,4 +1,4 @@
-/* Agent Keep-Awake: "warm editorial night-shift".
+/* Agent Awake: "warm editorial night-shift".
    Type and spacing follow a 3:4 scale anchored at 18px. System fonts only (no web fonts, no third-party requests). */
 
 :root {
@@ -255,6 +255,7 @@ kbd {
   background: var(--paper-deep);
   padding: 0.08em 0.32em;
   border-radius: 3px;
+  overflow-wrap: anywhere;
 }
 
 pre {
@@ -308,6 +309,38 @@ pre code {
 /* Hero */
 .hero {
   padding-top: var(--s4);
+}
+
+.cup-states {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--s1);
+  margin-top: var(--s2);
+}
+
+.cup-states figure {
+  margin: 0;
+}
+
+.cup-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5rem;
+  background: #181818;
+  padding: var(--s-1);
+}
+
+.cup-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.cup-states figcaption {
+  margin-top: var(--s-1);
+  font-size: var(--step--1);
+  line-height: 1.4;
 }
 
 /* The status bar: the whole UI of the product, shown at actual scale. */

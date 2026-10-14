@@ -3,354 +3,402 @@
 
 const vscode = require('vscode');
 const { KeepAwake } = require('./keepAwake');
-const { ActivityTracker } = require('./activity');
-
-/** @typedef {InstanceType<typeof KeepAwake>} Backend */
-/** @typedef {InstanceType<typeof ActivityTracker>} Tracker */
+const { ActivityCoordinator } = require('./activityCoordinator');
 
 const SECTION = 'agentKeepAwake';
-const MINUTE = 60_000;
-
-/** Document schemes that change on their own (logs, output panels, SCM views) and say nothing about agents. */
-const IGNORED_SCHEMES = new Set(['output', 'debug', 'vscode-terminal', 'git', 'gitfs', 'vscode-scm', 'comment', 'walkThroughSnippet']);
-const GIT_DIR = /(^|\/)\.git(\/|$)/;
-
-/**
- * @typedef {object} Config
- * @property {boolean} enabled
- * @property {'always' | 'activity'} mode
- * @property {number} timeoutMs
- * @property {boolean} keepDisplayOn
- * @property {boolean} showStatusBar
- */
-
-/** @type {Backend | undefined} */
-let backend;
+const NAME = 'Agent Awake';
+const HOUR_MS = 60 * 60_000;
+const DURATION_ERROR = 'Keep Awake: Duration (Hours) must be a number from 0 to 24. Use 0 for until you turn it off.';
+const AUTO_CAPABILITY = {
+  status: /** @type {const} */ ('unavailable'),
+  harness: 'VS Code Local/Copilot',
+  reason: 'No native lifecycle/cancellation/correlation profile validated; use Keep awake.'
+};
+const WINDOWS_NOTE =
+  'On Windows, protection also keeps the screen on to prevent idle Modern Standby. ' +
+  'Use AC power for long runs; closing the lid, the power button, an explicit Sleep command, ' +
+  'or device or organization policy can still put the computer to sleep.';
 
 /**
- * @param {vscode.ExtensionContext} context
+ * @typedef {ReturnType<typeof normalize>} State
+ *
+ * @typedef {object} View
+ * @property {string} text
+ * @property {boolean} green
+ * @property {'error' | 'warning' | undefined} background
+ * @property {string[]} lines Mode and protection facts, without click guidance.
+ * @property {string} hint
+ * @property {string} label Screen-reader label.
  */
+
+/** @param {unknown} hours @returns {hours is number} */
+function validHours(hours) {
+  return typeof hours === 'number' && Number.isFinite(hours) &&
+    hours >= 0 && hours <= 24 && (hours === 0 || Math.round(hours * HOUR_MS) > 0);
+}
+
+/** @param {number} at */
+function formatTime(at) {
+  return new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+/** @param {unknown} value @param {string} [fallback] */
+function textOf(value, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+/**
+ * Errors can cross realms or arrive as plain objects, so read the message rather than test instanceof.
+ * @param {unknown} error
+ */
+function messageOf(error) {
+  return error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+    ? error.message
+    : String(error);
+}
+
+/** @param {unknown} value */
+function countOf(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+/**
+ * Copies only the documented coordinator fields, so nothing else it holds can reach callers.
+ * @param {Record<string, any>} raw
+ */
+function normalize(raw) {
+  const auto = raw.auto && typeof raw.auto === 'object' ? raw.auto : {};
+  return {
+    mode: textOf(raw.mode, 'off'),
+    state: textOf(raw.state, 'off'),
+    desired: raw.desired === true,
+    confirmed: raw.confirmed === true,
+    ownerCount: countOf(raw.ownerCount),
+    generation: countOf(raw.generation),
+    instanceId: textOf(raw.instanceId),
+    durationMs: countOf(raw.durationMs),
+    expiresAt: countOf(raw.expiresAt),
+    error: textOf(raw.error),
+    notice: textOf(raw.notice),
+    auto: { status: textOf(auto.status, 'unavailable'), harness: textOf(auto.harness), reason: textOf(auto.reason) },
+    backendState: textOf(raw.backendState),
+    pids: Array.isArray(raw.pids) ? raw.pids.filter(Number.isSafeInteger) : [],
+    helpers: Array.isArray(raw.helpers) ? raw.helpers.filter(helper => typeof helper === 'string') : []
+  };
+}
+
+/**
+ * Everything the status item says, derived from one coordinator snapshot.
+ * Green is reserved for a confirmed hold; every other state is neutral or a warning.
+ * @param {State} s
+ * @param {boolean} windows
+ * @returns {View}
+ */
+function present(s, windows) {
+  const auto = s.mode === 'auto';
+  const mode = auto ? 'Auto - Copilot activity' : s.mode === 'manual' ? 'Keep awake' : 'Off';
+  const subject = auto ? 'Auto' : 'Keep Awake';
+  const reason = s.auto.reason || AUTO_CAPABILITY.reason;
+  const when = s.expiresAt > 0 ? formatTime(s.expiresAt) : '';
+  /** @type {string[]} */
+  const lines = [];
+  /** @type {View['background']} */
+  let background;
+  let text;
+  let hint;
+  let label;
+
+  if (s.confirmed) {
+    const timed = !auto && s.durationMs > 0;
+    const span = timed ? `until ${when || 'its timer ends'}` : 'until you turn it off';
+    text = '$(coffee)';
+    if (auto) {
+      lines.push(`Mode: ${mode}. On, confirmed. Your computer stays awake while tracked Copilot work is active (${s.ownerCount} tracked).`);
+      if (s.state === 'limited') lines.push('Coverage is limited: only the Copilot work that can be observed is protected.');
+    } else if (timed) {
+      lines.push(`Mode: ${mode}. On, confirmed ${span}.`);
+    } else {
+      lines.push(`Mode: ${mode}. On, confirmed. Your computer stays awake until you turn it off or close this window. No expiry timer is running.`);
+    }
+    if (!auto) lines.push('Keep awake does not depend on Copilot, hooks, a model or a sign-in.');
+    if (auto && when) lines.push(`Safeguard: protection for tracked work stops by ${when}, even though work may still be running.`);
+    hint = 'Click to turn Off (allow sleep). Off never cancels Copilot. Use Choose Mode for other options.';
+    label = auto
+      ? `${NAME}: ${mode} is on and confirmed. Tracked Copilot work is keeping your computer awake.`
+      : `${NAME}: ${mode} is on and confirmed ${span}. Your computer is being kept awake.`;
+  } else if (s.state === 'off') {
+    text = '$(coffee) @awake ready';
+    lines.push(`Mode: Off. ${NAME} is not holding any sleep request, so your computer can sleep. Other apps may still keep it awake.`);
+    lines.push('Opening VS Code never turns this on.');
+    if (s.auto.status === 'unavailable') lines.push('Auto - Copilot activity is unavailable in this build.');
+    else if (s.auto.status === 'limited') lines.push('Auto - Copilot activity has limited coverage in this build.');
+    hint = 'Click to enable your configured duration. The default is until you turn it off. Auto is only available through Choose Mode when supported.';
+    label = `${NAME}: Off. Your computer can sleep. Click to enable.`;
+  } else if (s.state === 'starting' || s.state === 'on') {
+    text = `$(sync~spin) ${subject}: Starting...`;
+    lines.push(`Mode: ${mode}. Starting. Sleep protection is not confirmed yet, so your computer is not protected until the icon turns green.`);
+    hint = 'Click to turn Off to cancel startup.';
+    label = `${NAME}: ${mode} is starting. Protection is not confirmed yet.`;
+  } else if (s.state === 'failed') {
+    text = `$(warning) ${subject}: Failed`;
+    background = 'error';
+    lines.push(`Mode: ${mode}. Failed. Sleep protection is not on, so your computer can sleep.`);
+    hint = 'Click to turn Off, then click again to retry.';
+    label = `${NAME}: ${mode} failed. Your computer can sleep.`;
+  } else if (s.state === 'unverified') {
+    text = `$(warning) ${subject}: Unverified`;
+    background = 'warning';
+    lines.push(`Mode: ${mode}. Unverified. This operating system has not confirmed the sleep request, so it may not prevent sleep.`);
+    hint = 'Do not rely on it. Click to turn Off.';
+    label = `${NAME}: ${mode} is unverified. The operating system has not confirmed sleep protection.`;
+  } else if (s.state === 'unavailable') {
+    text = '$(warning) Auto: Unavailable';
+    background = 'warning';
+    lines.push(`Mode: Auto - Copilot activity. Unavailable. ${reason}`, 'Nothing is keeping your computer awake.');
+    hint = 'Click to start Keep awake instead. Choose Off from the Command Palette if you do not want a hold.';
+    label = `${NAME}: Auto is unavailable. Your computer can sleep. Choose Keep awake instead.`;
+  } else if (s.state === 'limited') {
+    text = '$(warning) Auto: Limited';
+    background = 'warning';
+    lines.push('Mode: Auto - Copilot activity. Limited. Only the Copilot work that can be observed is protected, and some cases are not covered. Use Keep awake to cover everything.');
+    hint = 'Click to choose Keep awake or Off.';
+    label = `${NAME}: Auto has limited coverage. Your computer can sleep unless tracked work is active.`;
+  } else if (s.state === 'waiting') {
+    text = '$(coffee) Auto: Waiting';
+    lines.push('Mode: Auto - Copilot activity. Waiting. No tracked Copilot work is active, so no sleep request is held yet. Chats that were already running are not covered.');
+    hint = 'Click to choose Keep awake or Off.';
+    label = `${NAME}: Auto is waiting for Copilot activity. Nothing is protecting your computer right now.`;
+  } else {
+    text = `$(warning) ${subject}: Unknown`;
+    background = 'warning';
+    lines.push(`Mode: ${mode}. State "${s.state}" is not recognised, so protection is not confirmed.`);
+    hint = 'Click to choose Off or Keep awake.';
+    label = `${NAME}: unknown state. Protection is not confirmed.`;
+  }
+
+  if (auto) lines.push(`Harness: ${s.auto.harness || 'unknown'}.`);
+  if (s.error) lines.push(`Error: ${s.error}`);
+  if (s.notice && !lines.join(' ').includes(s.notice)) lines.push(`Notice: ${s.notice}`);
+  if (windows) lines.push(WINDOWS_NOTE);
+  return { text, green: s.confirmed, background, lines, hint, label };
+}
+
+/** @param {State} s */
+function autoUnavailableMessage(s) {
+  const reason = s.auto.reason || AUTO_CAPABILITY.reason;
+  if (s.mode === 'manual' && s.state !== 'off') {
+    return `Auto - Copilot activity is unavailable. ${reason} Keep awake is still on and was not changed. Choose Turn Off to release it.`;
+  }
+  if (s.state === 'limited') {
+    return `Auto - Copilot activity has limited coverage. ${reason} It protects only the work it can observe. Choose Keep awake to cover everything until you turn it off.`;
+  }
+  return `Auto - Copilot activity is unavailable. ${reason} Nothing is keeping your computer awake. Choose Keep awake to protect it until you turn it off.`;
+}
+
+/** @param {vscode.ExtensionContext} context */
 function activate(context) {
-  const log = vscode.window.createOutputChannel('Agent Keep-Awake', { log: true });
-  const ka = new KeepAwake({ log: (level, message) => log[level](message) });
-  backend = ka;
+  /** @type {string} */
+  const version = context.extension.packageJSON.version;
+  const log = vscode.window.createOutputChannel(NAME, { log: true });
+  /** @param {'debug' | 'info' | 'warn' | 'error'} level @param {string} message */
+  const write = (level, message) => log[level](message);
+  const windows = process.platform === 'win32';
+  const coordinator = new ActivityCoordinator(new KeepAwake({ log: write }), {
+    log: write,
+    keepDisplayOn: windows,
+    nativeAcknowledgement: windows,
+    autoCapability: { ...AUTO_CAPABILITY }
+  });
   const status = vscode.window.createStatusBarItem('agentKeepAwake.status', vscode.StatusBarAlignment.Right, 100);
-  status.name = 'Agent Keep-Awake';
+  status.name = NAME;
+  status.command = `${SECTION}.toggleSession`;
+  const green = new vscode.ThemeColor('testing.iconPassed');
 
-  const runsRemotely = Boolean(vscode.env.remoteName) && context.extension.extensionKind === vscode.ExtensionKind.Workspace;
-  const machine = runsRemotely ? `the remote machine (${vscode.env.remoteName})` : 'this computer';
-  log.info(`Agent Keep-Awake ${context.extension.packageJSON.version} on ${process.platform}/${process.arch}, extension host pid ${process.pid}, keeping ${machine} awake.`);
-
-  /** @type {Tracker | undefined} */
-  let tracker;
-  /** @type {vscode.Disposable[]} */
-  let activitySources = [];
-  /** @type {number | undefined} */
-  let testTimeoutOverrideMs;
-  let lastNotifiedError = '';
-
-  /** @returns {Config} */
-  function readConfig() {
-    const c = vscode.workspace.getConfiguration(SECTION);
-    let minutes = Number(c.get('activityTimeoutMinutes'));
-    if (!Number.isFinite(minutes)) {
-      minutes = 30;
-    }
-    minutes = Math.min(Math.max(minutes, 1), 1440);
-    return {
-      enabled: c.get('enabled') !== false,
-      mode: c.get('mode') === 'activity' ? 'activity' : 'always',
-      timeoutMs: testTimeoutOverrideMs ?? minutes * MINUTE,
-      keepDisplayOn: c.get('keepDisplayOn') === true,
-      showStatusBar: c.get('showStatusBarItem') !== false
-    };
-  }
-
-  /** @param {Tracker} t */
-  function startActivitySources(t) {
-    const poke = () => t.poke();
-    /** @type {vscode.Disposable[]} */
-    const d = [];
-    d.push(vscode.workspace.onDidChangeTextDocument(e => {
-      if (e.contentChanges.length > 0 && !IGNORED_SCHEMES.has(e.document.uri.scheme)) {
-        t.poke();
-      }
-    }));
-    d.push(vscode.workspace.onDidChangeNotebookDocument(poke));
-
-    const watcher = vscode.workspace.createFileSystemWatcher('**/*');
-    const onFile = (/** @type {vscode.Uri} */ uri) => {
-      if (!GIT_DIR.test(uri.path)) {
-        t.poke();
-      }
-    };
-    d.push(watcher, watcher.onDidCreate(onFile), watcher.onDidChange(onFile), watcher.onDidDelete(onFile));
-
-    // Terminal commands (agents run builds/tests here; CLI agents such as Claude Code run here too).
-    /** @type {Map<vscode.TerminalShellExecution, vscode.Terminal>} */
-    const running = new Map();
-    const w = vscode.window;
-    if (typeof w.onDidStartTerminalShellExecution === 'function') {
-      d.push(w.onDidStartTerminalShellExecution(e => { running.set(e.execution, e.terminal); t.begin(e.execution); }));
-      d.push(w.onDidEndTerminalShellExecution(e => { running.delete(e.execution); t.end(e.execution); }));
-      d.push(w.onDidCloseTerminal(term => {
-        for (const [execution, owner] of running) {
-          if (owner === term) {
-            running.delete(execution);
-            t.end(execution);
-          }
-        }
-      }));
-    }
-
-    // Tasks and debug sessions. Background (watch) tasks run forever, so they only count when they start.
-    const startTask = (/** @type {vscode.TaskExecution} */ execution) => {
-      if (execution.task.isBackground) {
-        t.poke();
-      } else {
-        t.begin(execution);
-      }
-    };
-    vscode.tasks.taskExecutions.forEach(startTask);
-    d.push(vscode.tasks.onDidStartTask(e => startTask(e.execution)));
-    d.push(vscode.tasks.onDidEndTask(e => t.end(e.execution)));
-    d.push(vscode.debug.onDidStartDebugSession(s => t.begin(s)));
-    d.push(vscode.debug.onDidTerminateDebugSession(s => t.end(s)));
-    return d;
-  }
-
-  function stopActivitySources() {
-    activitySources.forEach(d => d.dispose());
-    activitySources = [];
-    tracker?.dispose();
-    tracker = undefined;
-  }
-
-  /** @param {Config} cfg */
-  function syncActivitySources(cfg) {
-    const wantActivity = cfg.enabled && cfg.mode === 'activity';
-    if (!wantActivity) {
-      if (tracker) {
-        stopActivitySources();
-        log.info('Activity tracking stopped.');
-      }
-      return;
-    }
-    if (tracker) {
-      if (tracker.timeoutMs !== cfg.timeoutMs) {
-        tracker.setTimeoutMs(cfg.timeoutMs);
-      }
-      return;
-    }
-    const wasHolding = ka.state === 'on' || ka.state === 'starting';
-    tracker = new ActivityTracker({
-      timeoutMs: cfg.timeoutMs,
-      onChange: active => {
-        log.info(active ? 'Activity detected; keeping awake.' : `No activity for ${formatDuration(readConfig().timeoutMs)}; allowing sleep.`);
-        update();
-      }
-    });
-    activitySources = startActivitySources(tracker);
-    log.info(`Activity tracking started (timeout ${formatDuration(cfg.timeoutMs)}).`);
-    if (wasHolding) {
-      tracker.poke(); // Switching from "always": keep holding for one timeout instead of dropping immediately.
-    }
-  }
-
-  function update() {
-    const cfg = readConfig();
-    syncActivitySources(cfg);
-    const wanted = cfg.enabled && (cfg.mode === 'always' || (tracker !== undefined && tracker.active));
-    if (wanted) {
-      ka.acquire({ display: cfg.keepDisplayOn });
-    } else {
-      ka.release();
-    }
-    render(cfg);
-  }
-
-  /** @param {Config} [cfg] */
-  function render(cfg = readConfig()) {
-    if (!cfg.showStatusBar) {
-      status.hide();
-      return;
-    }
-    const state = ka.state;
-    const lines = [];
-    /** @type {vscode.ThemeColor | undefined} */
-    let color;
-    /** @type {vscode.ThemeColor | undefined} */
-    let background;
-    let command = `${SECTION}.toggle`;
-    if (!cfg.enabled) {
-      status.text = '$(circle-slash)';
-      lines.push(`**Agent Keep-Awake is off.** ${capitalize(machine)} can sleep normally.`, '', '[Turn on](command:agentKeepAwake.toggle)');
-    } else if (state === 'error') {
-      status.text = '$(warning)';
-      background = new vscode.ThemeColor('statusBarItem.warningBackground');
-      command = `${SECTION}.showStatus`;
-      lines.push(`**Agent Keep-Awake can't keep ${machine} awake.**`, '', escapeMarkdown(ka.error), '', '[Show log](command:agentKeepAwake.showLog) · [Turn off](command:agentKeepAwake.toggle)');
-    } else if (state === 'on' || state === 'starting') {
-      status.text = '$(coffee)';
-      const why = cfg.mode === 'activity' ? ' while activity continues' : ' while VS Code is open';
-      lines.push(`**Keeping ${machine} awake**${why}${state === 'starting' ? ' (starting...)' : ''}.`);
-      lines.push('', cfg.keepDisplayOn ? 'The display is kept on too.' : 'The screen can still turn off and lock as usual.');
-      lines.push('', '[Turn off](command:agentKeepAwake.toggle) · [Settings](command:agentKeepAwake.openSettings)');
-    } else {
-      status.text = '$(coffee)';
-      color = new vscode.ThemeColor('disabledForeground');
-      lines.push(`**Watching for activity.** ${capitalize(machine)} can sleep normally until something happens in this window.`);
-      lines.push('', '[Turn off](command:agentKeepAwake.toggle) · [Settings](command:agentKeepAwake.openSettings)');
-    }
-    const tooltip = new vscode.MarkdownString(lines.join('\n'), true);
-    tooltip.isTrusted = { enabledCommands: [`${SECTION}.toggle`, `${SECTION}.showLog`, `${SECTION}.openSettings`] };
-    status.tooltip = tooltip;
-    status.color = color;
-    status.backgroundColor = background;
-    status.command = command;
-    status.accessibilityInformation = { label: `Agent Keep-Awake: ${describe(cfg, state)}`, role: 'button' };
-    status.show();
-  }
+  const state = () => normalize(coordinator.getState());
 
   /**
-   * @param {Config} cfg
-   * @param {string} state
+   * A toast resolves only when it is dismissed, so commands never await one.
+   * @param {'info' | 'warn' | 'error'} level @param {string} message @param {string[]} [actions]
+   * @returns {Promise<string | undefined>}
    */
-  function describe(cfg, state) {
-    if (!cfg.enabled) {
-      return 'off';
-    }
-    if (state === 'error') {
-      return 'error';
-    }
-    if (state === 'on' || state === 'starting') {
-      return 'keeping awake';
-    }
-    return 'watching for activity';
+  function notify(level, message, actions = []) {
+    const shown = level === 'error' ? vscode.window.showErrorMessage(message, ...actions)
+      : level === 'warn' ? vscode.window.showWarningMessage(message, ...actions)
+        : vscode.window.showInformationMessage(message, ...actions);
+    return Promise.resolve(shown).then(choice => choice, () => undefined);
   }
 
-  /** @param {boolean} value */
-  async function setEnabled(value) {
-    const config = vscode.workspace.getConfiguration(SECTION);
-    const info = config.inspect('enabled');
-    const target = info?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
-    if (value) {
-      ka.resetFailures();
-    }
+  /** @param {number} durationMs @returns {Promise<boolean>} */
+  async function startManual(durationMs) {
     try {
-      await config.update('enabled', value, target);
-    } catch (err) {
-      vscode.window.showErrorMessage(`Agent Keep-Awake: could not update the setting: ${err instanceof Error ? err.message : String(err)}`);
-    }
-    update();
-  }
-
-  async function showStatus() {
-    const cfg = readConfig();
-    const state = ka.state;
-    const parts = [`Agent Keep-Awake is ${describe(cfg, state)}.`];
-    if (cfg.enabled) {
-      parts.push(`Mode: ${cfg.mode}${cfg.mode === 'activity' ? ` (${formatDuration(cfg.timeoutMs)} timeout)` : ''}.`);
-      if (state === 'on' || state === 'starting') {
-        parts.push(`Using ${ka.activeHelpers.join(' + ') || 'helper (starting)'} on ${process.platform}${cfg.keepDisplayOn ? ', display kept on' : ''}.`);
-      }
-      if (state === 'error') {
-        parts.push(ka.error);
-      }
-    }
-    const toggle = cfg.enabled ? 'Turn Off' : 'Turn On';
-    const choice = await vscode.window.showInformationMessage(parts.join(' '), toggle, 'Show Log', 'Settings');
-    if (choice === toggle) {
-      await setEnabled(!cfg.enabled);
-    } else if (choice === 'Show Log') {
-      log.show(true);
-    } else if (choice === 'Settings') {
-      await vscode.commands.executeCommand('workbench.action.openSettings', SECTION);
-    }
-  }
-
-  ka.on('change', state => {
-    log.debug(`Backend state: ${state}`);
-    if (state === 'error' && ka.error && ka.error !== lastNotifiedError) {
-      lastNotifiedError = ka.error;
-      vscode.window.showWarningMessage(`Agent Keep-Awake can't keep ${machine} awake: ${ka.error}`, 'Show Log', 'Turn Off').then(choice => {
-        if (choice === 'Show Log') {
-          log.show(true);
-        } else if (choice === 'Turn Off') {
-          setEnabled(false);
+      const confirmed = await coordinator.manual(durationMs);
+      if (!confirmed) {
+        const current = state();
+        if (current.state === 'failed') {
+          void notify('error', `Keep Awake could not start. Your computer can sleep.${current.error ? ` ${current.error}` : ''}`);
         }
-      });
+      }
+      return confirmed;
+    } catch (error) {
+      void notify('error', `Keep Awake could not start. Your computer can sleep. ${messageOf(error)}`);
+      return false;
     }
-    render();
-  });
+  }
+
+  function keepAwake() {
+    return startManual(0);
+  }
+
+  function turnOff() {
+    coordinator.off();
+  }
+
+  /** @returns {boolean} */
+  function autoMode() {
+    const armed = coordinator.auto();
+    if (!armed) void notify('warn', autoUnavailableMessage(state()));
+    return armed;
+  }
+
+  async function toggleSession() {
+    const current = state();
+    if (current.mode === 'manual' || current.desired) {
+      coordinator.off();
+      return;
+    }
+    const hours = vscode.workspace.getConfiguration(SECTION).get('durationHours', 0);
+    if (!validHours(hours)) {
+      log.error(DURATION_ERROR);
+      void notify('error', DURATION_ERROR);
+      return;
+    }
+    await startManual(Math.round(hours * HOUR_MS));
+  }
+
+  async function chooseDuration() {
+    const choice = await vscode.window.showQuickPick([
+      { label: 'Keep awake for 1 hour', description: 'For a long Copilot or Claude prompt', durationMs: HOUR_MS },
+      { label: 'Keep awake for 30 minutes', durationMs: 30 * 60_000 },
+      { label: 'Keep awake for 2 hours', durationMs: 2 * HOUR_MS },
+      { label: 'Keep awake for 4 hours', durationMs: 4 * HOUR_MS },
+      { label: 'Keep awake for 8 hours', durationMs: 8 * HOUR_MS },
+      { label: 'Until I turn it off', description: 'No expiry timer; still stops when this window closes', durationMs: 0 }
+    ], {
+      title: 'Keep Awake for a set time',
+      placeHolder: 'Choose a time. Click the green coffee icon to stop early.'
+    });
+    if (choice) await startManual(choice.durationMs);
+  }
+
+  async function selectMode() {
+    const s = state();
+    const timed = s.mode === 'manual' && s.durationMs > 0;
+    /** @param {boolean} current @param {string} base */
+    const describe = (current, base) => current ? (base ? `Current - ${base}` : 'Current') : base;
+    /** @type {(vscode.QuickPickItem & { action: 'off' | 'keepAwake' | 'auto' | 'timed' })[]} */
+    const items = [
+      {
+        label: '$(circle-slash) Off',
+        description: describe(s.mode === 'off', 'Allow sleep'),
+        detail: 'Stop this extension\'s sleep request. Other apps may still keep this computer awake. Never cancels Copilot.',
+        action: 'off'
+      },
+      {
+        label: '$(coffee) Keep awake',
+        description: describe(s.mode === 'manual' && !timed, 'Until I turn it off'),
+        detail: 'Prevent idle sleep for any activity until you turn it off or this window closes. No Copilot, hooks, model or sign-in needed.',
+        action: 'keepAwake'
+      },
+      {
+        label: '$(sparkle) Auto - Copilot activity',
+        description: describe(s.mode === 'auto', s.auto.status === 'unavailable' ? 'Unavailable'
+          : s.auto.status === 'limited' ? 'Limited coverage' : 'Available'),
+        detail: s.auto.reason || AUTO_CAPABILITY.reason,
+        action: 'auto'
+      },
+      {
+        label: '$(clock) Keep awake for a set time...',
+        description: describe(timed, '30 minutes to 8 hours'),
+        detail: 'Starts a timed Keep awake session that ends by itself. Turn Off stops it early.',
+        action: 'timed'
+      }
+    ];
+    const choice = await vscode.window.showQuickPick(items, {
+      title: NAME,
+      placeHolder: 'Choose how this window keeps your computer awake'
+    });
+    if (choice?.action === 'off') turnOff();
+    else if (choice?.action === 'keepAwake') await keepAwake();
+    else if (choice?.action === 'auto') autoMode();
+    else if (choice?.action === 'timed') await chooseDuration();
+  }
+
+  function showStatus() {
+    const summary = present(state(), windows).lines.join(' ');
+    void notify('info', summary, ['Show Log']).then(choice => {
+      if (choice === 'Show Log') log.show(true);
+    });
+  }
+
+  function render() {
+    const view = present(state(), windows);
+    status.text = view.text;
+    status.tooltip = [...view.lines, view.hint].join('\n');
+    status.color = view.green ? green : undefined;
+    status.backgroundColor = view.background ? new vscode.ThemeColor(`statusBarItem.${view.background}Background`) : undefined;
+    status.command = `${SECTION}.toggleSession`;
+    status.accessibilityInformation = { label: view.label, role: 'button' };
+    if (vscode.workspace.getConfiguration(SECTION).get('showStatusBarItem') === false) {
+      status.hide();
+    } else {
+      status.show();
+    }
+  }
+
+  coordinator.on('change', render);
+  log.info(`Agent Awake ${version} loaded. Click the ready cup to turn on your configured session; click the green cup to turn it off. No automatic start or chat monitoring.`);
+  if (windows) {
+    log.info('Windows requests both screen and system activity. Use AC power for long runs. Closing the lid, explicit Sleep, lock/standby or company policies may override the request; a green cup is not a guarantee against forced sleep.');
+  }
 
   context.subscriptions.push(
-    log,
+    // ActivityCoordinator.off() is the Off mode and shadows EventEmitter.off, so unsubscribe with removeListener.
+    { dispose: () => { coordinator.removeListener('change', render); } },
+    coordinator,
     status,
-    { dispose: () => { stopActivitySources(); ka.dispose(); backend = undefined; } },
-    vscode.commands.registerCommand(`${SECTION}.toggle`, () => setEnabled(!readConfig().enabled)),
-    vscode.commands.registerCommand(`${SECTION}.enable`, () => setEnabled(true)),
-    vscode.commands.registerCommand(`${SECTION}.disable`, () => setEnabled(false)),
+    log,
+    vscode.commands.registerCommand(`${SECTION}.selectMode`, selectMode),
+    vscode.commands.registerCommand(`${SECTION}.keepAwake`, keepAwake),
+    vscode.commands.registerCommand(`${SECTION}.autoMode`, autoMode),
+    vscode.commands.registerCommand(`${SECTION}.turnOff`, turnOff),
+    vscode.commands.registerCommand(`${SECTION}.toggleSession`, toggleSession),
+    vscode.commands.registerCommand(`${SECTION}.chooseDuration`, chooseDuration),
+    vscode.commands.registerCommand(`${SECTION}.openSettings`, () =>
+      vscode.commands.executeCommand('workbench.action.openSettings', '@ext:apkola29.agent-keep-awake duration')),
+    vscode.commands.registerCommand(`${SECTION}.stopSession`, turnOff),
     vscode.commands.registerCommand(`${SECTION}.showStatus`, showStatus),
     vscode.commands.registerCommand(`${SECTION}.showLog`, () => log.show(true)),
-    vscode.commands.registerCommand(`${SECTION}.openSettings`, () => vscode.commands.executeCommand('workbench.action.openSettings', SECTION)),
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration(SECTION)) {
-        ka.resetFailures();
-        update();
-      }
+      if (e.affectsConfiguration(SECTION)) render();
     })
   );
+  render();
 
-  update();
-
-  // Small API used by the integration tests (and handy for other extensions to query state).
   return {
+    startKeepAwake: (/** @type {number} */ durationMs) => coordinator.manual(durationMs),
+    stopKeepAwake: () => coordinator.off(),
     getState() {
-      const cfg = readConfig();
       return {
-        enabled: cfg.enabled,
-        mode: cfg.mode,
-        keepDisplayOn: cfg.keepDisplayOn,
-        backendState: ka.state,
-        error: ka.error,
-        helpers: ka.activeHelpers,
-        pids: ka.pids,
-        activityActive: tracker ? tracker.active : false,
-        busyCount: tracker ? tracker.busyCount : 0,
-        statusText: status.text
+        ...state(),
+        supported: true,
+        version,
+        keepsDisplayOn: windows,
+        statusText: status.text,
+        statusCommand: status.command,
+        statusColor: status.color instanceof vscode.ThemeColor ? status.color.id : status.color
       };
-    },
-    /** @param {number | undefined} ms Overrides the activity timeout (tests only). */
-    setActivityTimeoutOverrideMs(ms) {
-      testTimeoutOverrideMs = ms;
-      update();
     }
   };
 }
 
-function deactivate() {
-  backend?.dispose();
-  backend = undefined;
-}
-
-/** @param {number} ms */
-function formatDuration(ms) {
-  if (ms >= MINUTE && ms % MINUTE === 0) {
-    const minutes = ms / MINUTE;
-    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-  }
-  return `${Math.round(ms / 1000)} seconds`;
-}
-
-/** @param {string} s */
-function capitalize(s) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** @param {string} s */
-function escapeMarkdown(s) {
-  return s.replace(/[\\`*_{}[\]()#+\-.!|<>]/g, '\\$&');
-}
-
-module.exports = { activate, deactivate };
+module.exports = { activate };

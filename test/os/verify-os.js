@@ -105,9 +105,11 @@ async function main() {
   }
   const baseline = probe();
   info('baseline', baseline.raw);
-  if (baseline.system) {
-    info('note', 'another program already keeps the system awake, so "released" checks are skipped');
+  if (process.platform === 'win32' && (baseline.system || baseline.display)) {
+    throw new Error('INCONCLUSIVE: an ambient system/display power request prevents exclusive native acquire/release verification. No test helper was started.');
   }
+  const canCheckRelease = process.platform !== 'win32' || !baseline.system;
+  const canCheckDisplay = process.platform !== 'win32' || !baseline.display;
 
   /** @type {string[]} */
   const logs = [];
@@ -126,7 +128,7 @@ async function main() {
   info('helper', `${ka.activeHelpers.join('+')} pid ${ka.pids.join(',')}`);
   const held = probe(ka.pids);
   check('OS reports a system-sleep block', held.system, held.raw);
-  if (!baseline.display) {
+  if (canCheckDisplay) {
     check('display is not forced on by default', !held.display, held.raw);
   }
   if (admin) {
@@ -151,7 +153,7 @@ async function main() {
   const gone = await waitFor(() => pidsBefore.every(p => !isAlive(p)), 10_000);
   check('helper exits on release', gone, pidsBefore.join(','));
   await sleep(500);
-  if (!baseline.system) {
+  if (canCheckRelease) {
     const released = probe(pidsBefore);
     check('OS no longer reports the block', !released.system, released.raw);
   }
@@ -184,7 +186,7 @@ async function main() {
   second.dispose();
   await waitFor(() => secondPids.every(p => !isAlive(p)), 10_000);
   await sleep(500);
-  if (!baseline.system) {
+  if (canCheckRelease) {
     check('request released when the last window lets go', !probe(secondPids).system);
   }
 
@@ -203,7 +205,7 @@ async function main() {
     const cleaned = await waitFor(() => helperPids.every(p => !isAlive(p)), 20_000);
     check('helper exits by itself when VS Code is killed (no orphaned sleep block)', cleaned, helperPids.join(','));
     await sleep(500);
-    if (!baseline.system) {
+    if (canCheckRelease) {
       const after = probe(helperPids);
       check('crash test: OS no longer reports the block', !after.system, after.raw);
     }

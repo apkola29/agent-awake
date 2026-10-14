@@ -215,6 +215,7 @@ class KeepAwake extends EventEmitter {
     this._state = 'off';
     this._error = '';
     this._disposed = false;
+    this._generation = 0;
   }
 
   /** @returns {KeepAwakeState} */
@@ -248,6 +249,7 @@ class KeepAwake extends EventEmitter {
     if (this._wanted && display === this._display) {
       return;
     }
+    const generation = ++this._generation;
     if (this._wanted) {
       this._log('info', `Display setting changed (keep display on: ${display}); restarting helper.`);
       this._stopAll();
@@ -265,6 +267,10 @@ class KeepAwake extends EventEmitter {
     }
     this._setState('starting');
     for (const spec of usable) {
+      // State listeners may synchronously release, dispose, or replace this acquisition.
+      if (!this._wanted || this._disposed || generation !== this._generation) {
+        return;
+      }
       /** @type {HelperRun} */
       const run = { spec, child: undefined, ready: false, startedAt: 0, failures: 0, status: 'running', lastError: '', timer: undefined };
       this._runs.set(spec.id, run);
@@ -274,10 +280,8 @@ class KeepAwake extends EventEmitter {
 
   /** Stops keeping the machine awake (idempotent). */
   release() {
-    if (!this._wanted) {
-      return;
-    }
     this._wanted = false;
+    this._generation++;
     this._stopAll();
     this._error = '';
     this._setState('off');
@@ -297,8 +301,8 @@ class KeepAwake extends EventEmitter {
   }
 
   dispose() {
-    this.release();
     this._disposed = true;
+    this.release();
     this.removeAllListeners();
   }
 
