@@ -20,9 +20,9 @@
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
 const vscode = require('vscode');
 const { isAlive } = require('../../os/probe');
+const { nodeWorker, identities } = require('../native');
 
 const EXTENSION_ID = 'apkola29.agent-keep-awake';
 const GREEN = 'testing.iconPassed';
@@ -115,42 +115,6 @@ function launch(name, ...args) {
     (/** @type {unknown} */ error) => { run.done = true; run.error = error; }
   );
   return run;
-}
-
-/** @param {string} script @param {string} modulePath @param {unknown} value */
-async function nodeWorker(script, modulePath, value) {
-  const node = process.env.AKA_TEST_NODE;
-  assert.ok(node, 'runner supplies an actual Node binary; never spawn another editor');
-  /** @type {string} */
-  const output = await new Promise((resolve, reject) => {
-    execFile(node, ['-e', script, modulePath, JSON.stringify(value)],
-      { encoding: 'utf8', windowsHide: true, timeout: 65_000 }, (error, stdout) => {
-        if (error) reject(error);
-        else resolve(stdout);
-      });
-  });
-  return /** @type {unknown} */ (JSON.parse(output));
-}
-
-/**
- * Birth markers of live processes, measured outside the extension host so a slow query cannot stall helper events.
- * @param {number[]} pids
- * @returns {Promise<import('../../os/processes').ProcessIdentity[]>}
- */
-async function identities(pids) {
-  const marks = await nodeWorker(
-    'console.log(JSON.stringify(JSON.parse(process.argv[2]).map(p=>require(process.argv[1]).identity(p)).filter(Boolean)))',
-    path.join(__dirname, '..', '..', 'os', 'processes.js'), pids
-  );
-  assert.ok(Array.isArray(marks), 'helper identities must be an array');
-  /** @type {import('../../os/processes').ProcessIdentity[]} */
-  const verified = [];
-  for (const mark of marks) {
-    assert.ok(mark && typeof mark === 'object' && typeof mark.pid === 'number' && pids.includes(mark.pid) &&
-      typeof mark.birth === 'string' && mark.birth, 'helper identity must include its process birth marker');
-    verified.push({ pid: mark.pid, birth: mark.birth });
-  }
-  return verified;
 }
 
 /** Records every helper the extension reports, with its birth marker, so the outer runner can clean up scoped. */

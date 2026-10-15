@@ -9,6 +9,11 @@
 - Clarify that chat activity does not activate this manual prototype.
 - These disclosure fixes do not fix or certify hardware sleep prevention.
   No 1.2.3 package, installation, public push or deployment is authorized.
+- Add an opt-in controlled-editor hardware component checker using the actual
+  production coordinator plus a read-only native observer. It verifies loaded
+  version and helper/host identity, unchanged idle policies and real sleep
+  events; records input-timestamp changes without input contents. It is not
+  affected-work-window acceptance, native Auto evidence or publication approval.
 
 ## 1.2.2 distribution withdrawn - 2026-10-14
 

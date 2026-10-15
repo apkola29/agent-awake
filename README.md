@@ -214,6 +214,31 @@ npm run test:os
 npm run test:integration
 ```
 
+There is an opt-in **controlled-editor hardware component check** on Windows:
+
+```sh
+npm run test:idle:windows
+```
+
+It launches a disposable VS Code profile, verifies the candidate's loaded
+version and actual cup command binding, and takes the hold only through its
+production coordinator. A separate read-only observer creates no inhibitor.
+It requires PowerShell 7, AC power, finite existing idle policies, and at least
+240 seconds of genuine input inactivity. It never edits those policies.
+Successful completion also checks editor-close cleanup.
+
+This controlled editor is **not the affected work window** and is not native
+chat Auto or publication approval. The affected-window check uses
+[observe-window-windows.ps1](test/os/observe-window-windows.ps1) with the actual window's own extension log
+and explicitly expected loaded version. Do not infer that version from the
+installed Extensions list.
+
+The observer records changes to the OS's last-input timestamp, not keyboard
+characters or mouse positions. Repeated timestamp changes can originate from
+automated activity as well as a person; their source is not inferred. Such
+activity keeps the result inconclusive. Do not disable unrelated software,
+inject input, or weaken the idle threshold to manufacture a pass.
+
 For a real unattended Windows test on AC power:
 
 ```powershell

@@ -132,6 +132,7 @@
     "test": "node --test --test-timeout=5000 \"test/unit/*.test.js\"",
     "test:os": "node test/os/verify-os.js",
     "test:integration": "node test/integration/runTest.js",
+    "test:idle:windows": "node test/integration/windowsIdle.js",
     "test:all": "npm run typecheck && npm test && npm run test:os && npm run test:integration",
     "package": "npx --yes @vscode/vsce@latest package"
   },
