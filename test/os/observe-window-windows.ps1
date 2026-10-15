@@ -58,7 +58,8 @@ public static class AwakeActualWindowObserver {
     return info.Tick;
   }
   public static double IdleSeconds() {
-    return unchecked(GetTickCount() - InputTick()) / 1000.0;
+    var lastInput = InputTick();
+    return unchecked(GetTickCount() - lastInput) / 1000.0;
   }
   public static uint AcTimeout(Guid group, Guid setting) {
     IntPtr pointer;
@@ -81,6 +82,11 @@ function Read-Native {
   return $value
 }
 
+function Test-GenuineIdle {
+  param([double]$NativeIdleSeconds, [double]$ObservedQuietSeconds, [int]$RequiredSeconds)
+  return ($NativeIdleSeconds -ge $RequiredSeconds -and $ObservedQuietSeconds -ge $RequiredSeconds)
+}
+
 if ([Diagnostics.Process]::GetCurrentProcess().SessionId -ne [AwakeActualWindowObserver]::WTSGetActiveConsoleSessionId()) {
   throw 'INCONCLUSIVE: this observer is not in the physical-console session.'
 }
@@ -101,17 +107,24 @@ Write-Output 'INFO this observer creates no power hold, injects no input, change
 $minimumEnd = $begin.AddSeconds($Seconds)
 $deadline = $minimumEnd.AddSeconds(60)
 $previousInput = [AwakeActualWindowObserver]::InputTick()
+$clock = [Diagnostics.Stopwatch]::StartNew()
+$quietSince = $clock.Elapsed.TotalSeconds
+$observedQuiet = 0.0
 $inputChanges = 0
 do {
   Start-Sleep -Seconds 5
   $currentInput = [AwakeActualWindowObserver]::InputTick()
   if ($currentInput -ne $previousInput) {
     $inputChanges++
+    $quietSince = $clock.Elapsed.TotalSeconds
     $inputAt = (Get-Date).AddSeconds(-[AwakeActualWindowObserver]::IdleSeconds())
     Write-Output "INFO native input timestamp changed: $($inputAt.ToString('o')); timestamp metadata only, no input content."
     $previousInput = $currentInput
   }
-} while (((Get-Date) -lt $minimumEnd -or [AwakeActualWindowObserver]::IdleSeconds() -lt $Seconds) -and (Get-Date) -lt $deadline)
+  $observedQuiet = $clock.Elapsed.TotalSeconds - $quietSince
+} while (((Get-Date) -lt $minimumEnd -or
+          -not (Test-GenuineIdle -NativeIdleSeconds ([AwakeActualWindowObserver]::IdleSeconds()) -ObservedQuietSeconds $observedQuiet -RequiredSeconds $Seconds)) -and
+         (Get-Date) -lt $deadline)
 $end = Get-Date
 $idle = [AwakeActualWindowObserver]::IdleSeconds()
 $endPower = [AwakeActualWindowObserver+Power]::new()
@@ -119,6 +132,7 @@ $powerOk = [AwakeActualWindowObserver]::GetSystemPowerStatus([ref]$endPower)
 $held = Read-Native
 Write-Output ('INFO actual-window interval end: ' + (@{
   begin = $begin.ToString('o'); end = $end.ToString('o'); idleSeconds = $idle
+  observedQuietSeconds = $observedQuiet
   acQuerySucceeded = $powerOk; acLineStatus = $endPower.ACLineStatus; flags = $held.raw; inputTimestampChanges = $inputChanges
 } | ConvertTo-Json -Compress))
 $events = @()
@@ -135,11 +149,13 @@ if ($events.Count) {
   throw 'FAILED: Windows entered sleep/Modern Standby during the actual application hold.'
 }
 if (-not $powerOk -or $endPower.ACLineStatus -ne 1) { throw 'INCONCLUSIVE: end-of-interval AC power was not confirmed.' }
-if ($idle -lt $Seconds) { throw "INCONCLUSIVE: actual idle=$idle seconds; required=$Seconds. Do not count continuing input as a pass." }
+if (-not (Test-GenuineIdle -NativeIdleSeconds $idle -ObservedQuietSeconds $observedQuiet -RequiredSeconds $Seconds)) {
+  throw "INCONCLUSIVE: actual idle=$idle seconds; observed quiet=$observedQuiet seconds; required=$Seconds for both. Do not count continuing input as a pass."
+}
 $current = Get-CimInstance Win32_Process -Filter "ProcessId=$helperPid"
 if (-not $current -or $current.CreationDate -ne $birth -or $current.ParentProcessId -ne $helper.ParentProcessId) {
   throw 'FAILED: the original actual-window helper did not survive the interval.'
 }
 if (-not $held.system -or -not $held.display) { throw 'FAILED: the actual window lost its native requests.' }
-Write-Output "PASS actual-window idle=$idle seconds beyond unchanged policies; same owned helper; no sleep/standby events; native combined requests remain held."
+Write-Output "PASS actual-window idle=$idle seconds; observed quiet=$observedQuiet seconds beyond unchanged policies; same owned helper; no sleep/standby events; native combined requests remain held."
 Write-Output 'INFO observation only: the user application session was left unchanged. This single result is not publication approval.'

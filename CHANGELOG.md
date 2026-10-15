@@ -14,6 +14,10 @@
   version and helper/host identity, unchanged idle policies and real sleep
   events; records input-timestamp changes without input contents. It is not
   affected-work-window acceptance, native Auto evidence or publication approval.
+- Require both native last-input age and an independently observed monotonic
+  quiet interval to meet the exact idle threshold. Sample last input before
+  current time to avoid a newly arriving event producing unsigned underflow.
+  These are diagnostic acceptance safeguards, not changes to power protection.
 
 ## 1.2.2 distribution withdrawn - 2026-10-14
 
