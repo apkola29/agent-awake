@@ -16,7 +16,8 @@ Automatic Copilot activity detection is **not implemented** in this release.
 The public name is Agent Awake. The original extension ID
 `apkola29.agent-keep-awake` and `agentKeepAwake.*` settings/commands are retained
 so existing installations receive an update instead of a second extension.
-Deployment is gated on real functional and hardware validation.
+This guide describes **1.2.2**. Native command/request and cleanup checks pass;
+genuine unattended hardware validation is still inconclusive.
 
 ## Use it in VS Code
 
@@ -24,8 +25,10 @@ Requirements: **desktop VS Code 1.95 or newer**. Manual power control needs
 no hooks, model account, API key, or subscription. Windows is the validated
 native-request target; macOS/Linux protection remains explicitly unverified.
 
-1. Install the local preview VSIX through **Extensions: Install from VSIX...**
-   in the Command Palette, or launch **Run Extension** with F5 from this project.
+1. Install or update [Agent Awake in the Marketplace](https://marketplace.visualstudio.com/items?itemName=apkola29.agent-keep-awake).
+   Check the installed version. For the latest packaged build, download the VSIX
+   from [GitHub Releases](https://github.com/apkola29/agent-awake/releases/latest)
+   and run **Extensions: Install from VSIX...** in the Command Palette.
 2. **Click `@awake ready` once.** No picker or confirmation is needed.
 3. On Windows, wait for the acknowledged **green cup**, then use normal Copilot,
    Claude, or any other application. No `@awake` prefix or model replacement is required.
@@ -290,13 +293,23 @@ Sources:
 [Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference),
 [VS Code extension hosts](https://code.visualstudio.com/api/advanced-topics/extension-host).
 
-## Publication gate
+## Validation scope and version checks
 
-The 1.2.1 candidate is for local validation. An existing Marketplace listing
-uses the stable extension ID above; local source, an installed VSIX, and a
-published update are distinct. GitHub Actions is manual-only, with no automatic
-release workflow. Public updates require functional and genuine idle validation.
-Native Auto and macOS/Linux confirmation remain separately evidence-gated.
+Windows native command/request and cleanup checks pass, including the actual
+cup's command binding, timed expiry, failure/retry, and editor exit. The genuine
+unattended hardware test remains **inconclusive** because input continued during
+the measured intervals. This release does not claim that the reported laptop
+sleep problem has passed unattended UAT or that OS policies can be overridden.
+Native Copilot Auto and macOS/Linux confirmation remain separately unverified.
+
+Local source, an installed VSIX, a loaded window and the Marketplace version are
+distinct. If the listing has not yet received the newest build, use the versioned
+VSIX in GitHub Releases. After an update, reload a window only when its agent
+work is safe to interrupt, then use **Agent Awake: Show Log** to check the loaded
+version. Reload starts Off; click the cup to enable it again.
+
+CI tests are manually triggered. There is no automatic Marketplace release
+workflow. The usage/why site is published from this repository's `docs` folder.
 
 License: [MIT](LICENSE).
 

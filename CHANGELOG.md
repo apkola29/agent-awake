@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.2 - Agent Awake public distribution
+
+- Prepare the tested manual-control runtime for the Agent Awake public update,
+  preserving the original Marketplace ID for in-place upgrades.
+- Publish a coherent install/update guide, why/usage pages and control-only
+  screenshot illustrations, without surrounding chat/model context.
+- Keep the 1.2.1 runtime unchanged. Windows native command/request and cleanup
+  checks pass; unattended hardware UAT remains inconclusive, not certified.
+  Automatic native chat detection is still unavailable.
+
 ## 1.2.1 - common Off guard
 
 - A direct green-cup click always releases protection, including a future

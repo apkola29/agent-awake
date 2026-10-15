@@ -24,6 +24,10 @@
       <p><strong>Off by default. The default session has no expiry, but ends
         when you turn it off or close its window. Opening VS Code alone
         never activates protection.</strong></p>
+      <div class="actions">
+        <a class="button" href="https://marketplace.visualstudio.com/items?itemName=apkola29.agent-keep-awake">Marketplace listing</a>
+        <a class="more" href="https://github.com/apkola29/agent-awake/releases/latest">Download the latest VSIX</a>
+      </div>
       <h2>Why this was started</h2>
       <p>Long coding chats can continue without keyboard or mouse input. A workstation
         may sleep partway through the agent's work. Keeping it awake merely because
@@ -65,11 +69,16 @@
         Windows window owns one local helper. Timed sessions have one expiry
         timer; until-off sessions have none. Off and window exit release only
         that window's ownership.</p>
-      <p>This 1.2.1 candidate is being validated locally before a public update.
-        An existing Marketplace listing keeps the original ID
+      <p>Agent Awake 1.2.2 provides explicit manual controls. The Marketplace
+        listing keeps the original ID
         <code>apkola29.agent-keep-awake</code> for in-place upgrades.
+        Check the listing's version or use the versioned GitHub release.
         Automatic chat detection and native macOS/Linux confirmation are not
-        claimed. There is no automatic publishing workflow.</p>
+        claimed. There is no automatic Marketplace publishing workflow.</p>
+      <p><strong>Validation scope:</strong> Windows native command/request
+        and cleanup checks pass. Genuine unattended hardware testing remains
+        inconclusive because input continued; this is not a claim that the
+        reported laptop sleep problem has passed unattended UAT.</p>
       <p><a class="more" href="usage.html">Read the usage and troubleshooting guide</a></p>
     </div>
   </main>

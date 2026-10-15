@@ -25,11 +25,13 @@
       <p>Manual power control is free and local-only: no login, API key,
         model request, tool call, or chat-content monitoring. It does not reroute
         work through a replacement participant or choose a different model.</p>
-      <h2>Install the local preview</h2>
+      <h2>Install or update</h2>
       <ol>
         <li>Use desktop VS Code 1.95 or newer. Windows is the native-acknowledgement test target; other platforms are Unverified.</li>
-        <li>Run <strong>Extensions: Install from VSIX...</strong> and choose the local preview,
-          or launch <strong>Run Extension</strong> with F5 from the source project.</li>
+        <li>Install or update <a href="https://marketplace.visualstudio.com/items?itemName=apkola29.agent-keep-awake">Agent Awake in the Marketplace</a>.
+          This guide describes <strong>1.2.2</strong>. If the listing is older,
+          download the latest VSIX from <a href="https://github.com/apkola29/agent-awake/releases/latest">GitHub Releases</a>
+          and run <strong>Extensions: Install from VSIX...</strong>.</li>
         <li>Click <strong>@awake ready</strong> once. No picker or confirmation is needed.</li>
         <li>Expect the ready text to disappear and the <strong>cup to turn green</strong>; run your normal long prompt.</li>
         <li>Click the green cup again when done, or run <strong>Agent Awake: Turn Off (Allow Sleep)</strong>. This never cancels native Copilot.</li>
@@ -125,11 +127,16 @@ npm run test:integration</code></pre>
       <p>Linux verification requires <code>busctl</code> with JSON support and a
         reachable logind system bus. A failed query or malformed reply fails
         validation; it never counts as a successfully released request.</p>
-      <h2>Publication gate</h2>
-      <p>The 1.2.1 candidate is for local validation; an installed VSIX is not
-        proof of a published Marketplace update. Functional and genuine idle
-        validation gate a public update. Native Auto is separately blocked by
-        lifecycle/routing evidence. Nothing is automatically published.</p>
+      <h2>What has and has not been verified</h2>
+      <p>Windows native command/request and cleanup checks pass. Genuine
+        unattended hardware tests remain <strong>inconclusive</strong> because
+        input continued. This is not unattended UAT proof for the reported
+        laptop sleep problem. Native Auto is separately blocked by lifecycle
+        and routing evidence; native macOS/Linux confirmation is outstanding.</p>
+      <p>An installed VSIX is not proof of the version loaded in an existing
+        window or published in the Marketplace. Check the extension log after
+        reloading a window when its agent work is safe to interrupt. Reload
+        starts Off. No automatic Marketplace release workflow is installed.</p>
     </div>
   </main>
 </body>

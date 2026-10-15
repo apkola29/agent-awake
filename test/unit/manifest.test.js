@@ -40,8 +40,8 @@ test('activates lazily after start-up and runs on the local machine first', () =
   assert.ok(fs.existsSync(path.join(root, pkg.main)));
 });
 
-test('is Agent Awake 1.2.1 with the original upgrade identity and matching lockfile metadata', () => {
-  assert.equal(pkg.version, '1.2.1');
+test('is Agent Awake 1.2.2 with the original upgrade identity and matching lockfile metadata', () => {
+  assert.equal(pkg.version, '1.2.2');
   assert.equal(pkg.displayName, 'Agent Awake');
   assert.equal(pkg.name, 'agent-keep-awake', 'preserve installed users and Marketplace updates');
   assert.equal(pkg.publisher, 'apkola29');
