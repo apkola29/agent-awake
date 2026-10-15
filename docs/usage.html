@@ -25,13 +25,13 @@
       <p>Manual power control is free and local-only: no login, API key,
         model request, tool call, or chat-content monitoring. It does not reroute
         work through a replacement participant or choose a different model.</p>
-      <h2>Install or update</h2>
+      <h2>Supervised local testing only</h2>
       <ol>
         <li>Use desktop VS Code 1.95 or newer. Windows is the native-acknowledgement test target; other platforms are Unverified.</li>
-        <li>Install or update <a href="https://marketplace.visualstudio.com/items?itemName=apkola29.agent-keep-awake">Agent Awake in the Marketplace</a>.
-          This guide describes <strong>1.2.2</strong>. If the listing is older,
-          download the latest VSIX from <a href="https://github.com/apkola29/agent-awake/releases/latest">GitHub Releases</a>
-          and run <strong>Extensions: Install from VSIX...</strong>.</li>
+        <li>The <strong>1.2.2 prototype is withdrawn</strong> from public
+          distribution. Before any test, check the loaded version in this
+          specific window with <strong>Agent Awake: Show Log</strong>.
+          An installed update does not prove an older window loaded it.</li>
         <li>Click <strong>@awake ready</strong> once. No picker or confirmation is needed.</li>
         <li>Expect the ready text to disappear and the <strong>cup to turn green</strong>; run your normal long prompt.</li>
         <li>Click the green cup again when done, or run <strong>Agent Awake: Turn Off (Allow Sleep)</strong>. This never cancels native Copilot.</li>
@@ -128,6 +128,9 @@ npm run test:integration</code></pre>
         reachable logind system bus. A failed query or malformed reply fails
         validation; it never counts as a successfully released request.</p>
       <h2>What has and has not been verified</h2>
+      <p><strong>Distribution is paused.</strong> GitHub binary download and
+        Pages deployment are withdrawn and the Marketplace listing unpublished.
+        Do not rely on this prototype for unattended work.</p>
       <p>Windows native command/request and cleanup checks pass. Genuine
         unattended hardware tests remain <strong>inconclusive</strong> because
         input continued. This is not unattended UAT proof for the reported

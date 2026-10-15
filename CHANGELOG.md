@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.2 distribution withdrawn - 2026-10-14
+
+- Withdraw the GitHub binary release and Pages site, and unpublish the
+  Marketplace listing after the reported sleep failure. Preserve source/history.
+- Native API/command checks were not sufficient unattended hardware acceptance.
+  Installed-version checks also failed to establish the version actually loaded
+  in the affected window. Do not promote the prototype as a verified fix.
+- Further publication requires a real idle test on the actual loaded build
+  and explicit approval. Native chat Auto remains unavailable.
+
 ## 1.2.2 - Agent Awake public distribution
 
 - Prepare the tested manual-control runtime for the Agent Awake public update,

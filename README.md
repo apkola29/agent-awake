@@ -1,5 +1,10 @@
 # Agent Awake
 
+> **Distribution paused: not validated for unattended work.**
+> The 1.2.2 GitHub download has been withdrawn, GitHub Pages disabled, and the
+> Marketplace listing unpublished. Do not rely on this prototype to prevent
+> unattended sleep. Passing API/command tests are not hardware acceptance proof.
+
 **Click the ready coffee cup before a long run. Click the green cup when you are done.**
 
 Agent Awake requests local system and screen activity while you explicitly
@@ -16,8 +21,9 @@ Automatic Copilot activity detection is **not implemented** in this release.
 The public name is Agent Awake. The original extension ID
 `apkola29.agent-keep-awake` and `agentKeepAwake.*` settings/commands are retained
 so existing installations receive an update instead of a second extension.
-This guide describes **1.2.2**. Native command/request and cleanup checks pass;
-genuine unattended hardware validation is still inconclusive.
+This guide describes the withdrawn **1.2.2 prototype**. Real idle acceptance
+must be performed using the version actually loaded in the affected window,
+not merely the version installed on disk or running in another test window.
 
 ## Use it in VS Code
 
@@ -25,10 +31,10 @@ Requirements: **desktop VS Code 1.95 or newer**. Manual power control needs
 no hooks, model account, API key, or subscription. Windows is the validated
 native-request target; macOS/Linux protection remains explicitly unverified.
 
-1. Install or update [Agent Awake in the Marketplace](https://marketplace.visualstudio.com/items?itemName=apkola29.agent-keep-awake).
-   Check the installed version. For the latest packaged build, download the VSIX
-   from [GitHub Releases](https://github.com/apkola29/agent-awake/releases/latest)
-   and run **Extensions: Install from VSIX...** in the Command Palette.
+1. This is for supervised local testing only; do not distribute or rely on the
+   withdrawn package. Before a test, use **Agent Awake: Show Log** in the actual
+   window being tested and verify its loaded version. Reload an older window
+   only when its agent work is safe to interrupt. Reload starts Off.
 2. **Click `@awake ready` once.** No picker or confirmation is needed.
 3. On Windows, wait for the acknowledged **green cup**, then use normal Copilot,
    Claude, or any other application. No `@awake` prefix or model replacement is required.
@@ -303,13 +309,14 @@ sleep problem has passed unattended UAT or that OS policies can be overridden.
 Native Copilot Auto and macOS/Linux confirmation remain separately unverified.
 
 Local source, an installed VSIX, a loaded window and the Marketplace version are
-distinct. If the listing has not yet received the newest build, use the versioned
-VSIX in GitHub Releases. After an update, reload a window only when its agent
+distinct. Public distribution is withdrawn pending real idle acceptance and
+explicit approval. After an update, reload a window only when its agent
 work is safe to interrupt, then use **Agent Awake: Show Log** to check the loaded
 version. Reload starts Off; click the cup to enable it again.
 
 CI tests are manually triggered. There is no automatic Marketplace release
-workflow. The usage/why site is published from this repository's `docs` folder.
+workflow. The usage/why source is in this repository's `docs` folder, but its
+Pages deployment is disabled while validation is incomplete.
 
 License: [MIT](LICENSE).
 
