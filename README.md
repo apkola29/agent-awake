@@ -25,6 +25,49 @@ This guide describes the withdrawn **1.2.2 prototype**. Real idle acceptance
 must be performed using the version actually loaded in the affected window,
 not merely the version installed on disk or running in another test window.
 
+## Local-only mouse-jiggle prototype (1.3.0 source)
+
+The latest source adds **Agent Awake: Start Experimental Mouse Jiggle...** in
+the Command Palette. It is not installed or publicly distributed. The normal
+cup and native commands still use the original power-request route; there is
+no persistent mouse-jiggle setting and no automatic activation.
+
+For supervised development testing, start with **Off**, run that explicit
+command, and read its per-session warning. Only choosing **Start mouse jiggle**
+starts the helper. Canceling, turning Off while the warning is open, or leaving
+an existing session active will not silently enable input. It uses the configured
+Duration (Hours), including 0/until-off. Clicking its active cup, expiry, window
+close/reload or helper failure stops the owned session.
+
+- One persistent Windows PowerShell helper waits 30 seconds between checks;
+  no app/process is launched for each pulse, and no runtime package is added.
+- It attempts a tiny paired relative mouse movement only after at least
+  30 seconds of input inactivity, with no mouse button or modifier held.
+  It sends no clicks or keyboard events. Pointer acceleration/screen edges
+  can affect the resulting movement; exact cursor restoration is not promised.
+- It requires the unlocked physical-console desktop. Lock/session change or
+  an inaccessible desktop stops it rather than attempting to unlock or resume.
+  Unexpected exit never automatically restarts synthetic input.
+- Initialization is bounded to 20 seconds because this route also verifies
+  desktop/session access. A timeout releases the helper, so a late startup
+  cannot begin input after reporting failure. Native startup keeps its existing
+  10-second bound.
+- **Synthetic input can affect pointer use and delay automatic locking.**
+  Use it only where device/organization policy permits. It does not change
+  power plans, security settings or permissions, and never requests elevation.
+- This route holds no additional native power request, reads no chat content,
+  and does not detect Copilot/Claude work. It always shows **Unverified**, never
+  confirmed green: a running helper is not proof that Windows will stay awake.
+
+This is a compatibility experiment, not a measured CPU/memory improvement or
+a verified sleep fix. Distribution stays withdrawn. Automated checks do not
+send live synthetic input; the Windows startup check precloses stdin before
+initialization, so the movement loop cannot run.
+
+```powershell
+node .\test\os\verify-windows-guards.js
+```
+
 ## Use it in VS Code
 
 Requirements: **desktop VS Code 1.95 or newer**. Manual power control needs
@@ -85,6 +128,7 @@ Selecting Off never aborts or modifies Copilot work.
 | Warning **Keep Awake: Failed** | Protection could not start or was lost; sleep is allowed |
 | **Auto: Unavailable** | No supported native-hook profile has been verified; no power hold |
 | **Keep Awake: Unverified** on macOS/Linux | A helper may be running, but this build has no native acknowledgement proof; never shown as confirmed green |
+| **Mouse jiggle: Unverified** | An explicitly approved experimental input helper may be running; it is never proof that sleep is blocked |
 
 The tooltip explains **Off**, **Manual**, or **Auto**, confirmed protection,
 owner count, and any deadline. Click to turn your configured session on or off.
@@ -143,9 +187,12 @@ credentials; local installation does not.
 
 - The coffee control makes no model, network, authentication, or telemetry calls.
   It starts only a local, platform-native helper with fixed commands and arguments.
-- It opens no listening port, requests no elevation, writes no power plan or
-  registry policy, and never simulates keyboard/mouse input.
-- Manual uses fixed local commands and no workspace execution. Auto requires
+- It opens no listening port, requests no elevation, and writes no power plan or
+  registry policy. Native mode never simulates input. Only the separate
+  experimental mouse command can generate synthetic pointer input, after fresh
+  explicit consent for that session.
+- Manual uses fixed local commands and no workspace execution. The mouse
+  experiment uses a fixed encoded script, not workspace arguments. Auto requires
   a separately verified trusted local runtime, which is not enabled here.
 - Settings are application-scoped; workspace files cannot silently choose
   indefinite protection or hide its control. There is no persistent On setting.
@@ -167,19 +214,23 @@ Bounded review and passing tests do not prove all possible defects are absent.
 
 ## Lightweight and bounded
 
-- No polling, timers, or helper process while idle.
+- No polling, timers, or helper process while Off.
 - A timed session uses one expiry timer, not a countdown polling loop.
 - Live-forever mode uses no expiry timer. Invalid durations fail visibly
   instead of silently falling back to an hour or enabling indefinite protection.
 - One small OS helper per active window on Windows/macOS; Linux may use two
   native inhibitors for desktop compatibility.
-- Windows uses `SetThreadExecutionState`; macOS uses `caffeinate`; Linux uses
+- Experimental mouse mode uses one interruptible 30-second wait and the same
+  owner/coordinator; it is not a per-frame loop or a second helper beside native
+  mode. Its footprint has not been benchmarked and must not be called lighter.
+- Native Windows mode uses `SetThreadExecutionState`; macOS uses `caffeinate`; Linux uses
   `systemd-inhibit` and/or `gnome-session-inhibit`.
-- **On Windows the screen stays on while enabled**, using combined system and
+- **Native Windows mode requests that the screen stays on while enabled**, using combined system and
   display activity requests. This is required to address idle Modern Standby
   on machines where system-only requests allow screen-off standby entry.
   macOS/Linux continue to use system-only protection. Power plans are never edited.
-- Protection must start within 10 seconds or the request fails visibly.
+- Native startup is bounded to 10 seconds; experimental mouse initialization
+  is bounded to 20 seconds and releases its helper if that deadline is missed.
 - No model/token/tool polling, transcript watcher, or IPC service is needed.
 - Native backend readiness on macOS/Linux currently uses process survival,
   not a proven native assertion; the UI must say Unverified rather than green.
@@ -267,6 +318,11 @@ verification). Failure cleanup targets only that runner's descendants and
 recorded helper PIDs with matching process-birth identities. Windows runs with
 an existing system/display power hold fail as **inconclusive**, not as passed
 acquire/release verification.
+
+For a focused native regression, `VSCODE_TEST_NAME` accepts literal case-name
+fragments separated by `|`. Unselected cases are reported as not run, never
+passing. The editor-shutdown ownership case still runs. This filter does not
+change any assertion, per-case timeout or hardware-idle threshold.
 
 For Windows UAT, click the actual ready cup. Verify the green
 cup and confirmed Manual tooltip. Continue your normal prompt; click again when

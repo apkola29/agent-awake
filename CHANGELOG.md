@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased local prototype - 1.3.0
+
+- Add a separate, per-session consent-gated Windows mouse-jiggle command.
+  Native power requests remain the default and the ordinary cup never
+  silently opts into simulated input.
+- Reuse the sole coordinator, duration/expiry and EOF cleanup. One persistent
+  helper waits 30 seconds between guarded checks, skips recent/held input,
+  stops on lock/session change, and never auto-restarts after failure.
+- Keep input-only sessions visibly Unverified and separate from native
+  request acknowledgement. Disclose pointer/automatic-lock effects.
+- No live synthetic input is run by the automated startup/policy tests.
+  This prototype is not installed or published, not benchmarked as lighter,
+  and not certified to prevent sleep. Public distribution remains withdrawn.
+
 ## Unreleased local development - 1.2.3
 
 - Show the version actually loaded in this window in the tooltip, screen-reader

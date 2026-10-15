@@ -15,6 +15,7 @@
  *   VSCODE_TEST_RUN_TIMEOUT_MS     watchdog for the whole run (default: 8 minutes)
  *   VSCODE_TEST_WINDOWS_IDLE       1 selects the opt-in controlled-editor hardware component test
  *   VSCODE_TEST_PWSH               PowerShell 7 executable for that optional read-only observer
+ *   VSCODE_TEST_NAME               optional literal case-name fragments separated by |; shutdown proof still runs
  */
 
 const fs = require('fs');
@@ -52,6 +53,10 @@ async function main() {
   const idle = process.env.VSCODE_TEST_WINDOWS_IDLE;
   if (idle !== undefined && idle !== '1') throw new Error('VSCODE_TEST_WINDOWS_IDLE must be 1 or unset.');
   if (idle && process.platform !== 'win32') throw new Error('The hardware idle component test requires Windows.');
+  const selectedNames = process.env.VSCODE_TEST_NAME || '';
+  if (selectedNames.length > 256 || (selectedNames && selectedNames.split('|').some(name => !name.trim()))) {
+    throw new Error('VSCODE_TEST_NAME must contain nonempty case-name fragments (at most 256 characters).');
+  }
   const root = path.resolve(__dirname, '..', '..');
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-keep-awake-it-'));
   const workspace = path.join(scratch, 'workspace');
@@ -90,7 +95,8 @@ async function main() {
       extensionTestsPath: path.join(__dirname, 'suite', idle ? 'windowsIdle.js' : 'index.js'),
       extensionTestsEnv: {
         AKA_TEST_WORKSPACE: workspace, AKA_TEST_NODE: process.execPath,
-        AKA_TEST_LOGS: path.join(userData, 'logs'), AKA_TEST_PWSH: process.env.VSCODE_TEST_PWSH || 'pwsh.exe'
+        AKA_TEST_LOGS: path.join(userData, 'logs'), AKA_TEST_PWSH: process.env.VSCODE_TEST_PWSH || 'pwsh.exe',
+        AKA_TEST_NAME: selectedNames
       },
       launchArgs: [
         workspace,

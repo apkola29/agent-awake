@@ -7,10 +7,10 @@
  * Pure Node.js (no `vscode` import) so it can be unit-tested and verified on real
  * operating systems outside of VS Code. It holds a power request through a tiny,
  * OS-provided helper process that:
- *   - uses ~0% CPU (it blocks on I/O; there is no polling),
+ *   - native mode blocks on I/O without polling; experimental input waits 30 seconds between guarded checks,
  *   - never changes power settings (nothing to restore if anything goes wrong),
  *   - dies on its own if VS Code dies (no orphaned sleep blockers):
- *       Windows: PowerShell calls SetThreadExecutionState, then waits for stdin EOF.
+ *       Windows: PowerShell uses SetThreadExecutionState by default; explicit mouse input uses a separate fixed script.
  *       macOS:   `caffeinate -i -w <pid>` exits when the extension host exits.
  *       Linux:   `systemd-inhibit` / `gnome-session-inhibit` run `cat`, which exits on stdin EOF.
  */
@@ -19,6 +19,7 @@ const childProcess = require('child_process');
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
+const { windowsMouseJiggleScript } = require('./windowsMouseJiggle');
 
 const READY_TOKEN = 'READY';
 const WHO = 'VS Code (Agent Keep-Awake)';
@@ -35,11 +36,13 @@ const ES_DISPLAY_REQUIRED = 0x00000002;
  * @property {string} id            Short name used in logs, e.g. "powershell".
  * @property {string} command       Executable to spawn.
  * @property {string[]} args
- * @property {boolean} waitForReady When true the helper prints READY once the request is held.
+ * @property {boolean} waitForReady Native acknowledgement, or mouse-helper initialization only (never protection proof).
+ * @property {boolean} [retry] False for experimental input: never automatically resume after a failure/lock.
  *
  * @typedef {object} PlatformInfo
  * @property {NodeJS.Platform} platform
  * @property {boolean} display      Also keep the display on.
+ * @property {boolean} [mouseJiggle] Explicit experimental input instead of a native power request.
  * @property {number} pid           PID to watch (the extension host).
  * @property {NodeJS.ProcessEnv} env
  * @property {(p: string) => boolean} exists
@@ -100,6 +103,9 @@ function which(name, env, exists, platform) {
  */
 function buildHelpers(info) {
   const { platform, display, pid, env, exists } = info;
+  if (info.mouseJiggle && platform !== 'win32') {
+    return { helpers: [], error: 'Experimental mouse jiggle is available only on Windows.' };
+  }
 
   if (platform === 'win32') {
     const systemRoot = env.SystemRoot || env.SYSTEMROOT || env.windir || 'C:\\Windows';
@@ -107,6 +113,16 @@ function buildHelpers(info) {
     let command = candidates.find(exists) || which('powershell.exe', env, exists, platform) || which('pwsh.exe', env, exists, platform);
     if (!command) {
       return { helpers: [], error: 'Windows PowerShell (powershell.exe) was not found.' };
+    }
+    if (info.mouseJiggle) {
+      return {
+        helpers: [{
+          id: 'mouse-jiggle', command,
+          args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand',
+            Buffer.from(windowsMouseJiggleScript(), 'utf16le').toString('base64')],
+          waitForReady: true, retry: false
+        }]
+      };
     }
     return {
       helpers: [{
@@ -206,6 +222,7 @@ class KeepAwake extends EventEmitter {
 
     this._wanted = false;
     this._display = false;
+    this._mouseJiggle = false;
     /** @type {Map<string, HelperRun>} */
     this._runs = new Map();
     /** Helpers that failed in a way retrying will not fix (e.g. not installed), with the reason. */
@@ -239,25 +256,27 @@ class KeepAwake extends EventEmitter {
 
   /**
    * Starts keeping the machine awake (idempotent).
-   * @param {{ display?: boolean }} [options]
+   * @param {{ display?: boolean, mouseJiggle?: boolean }} [options]
    */
   acquire(options = {}) {
     if (this._disposed) {
       return;
     }
-    const display = Boolean(options.display);
-    if (this._wanted && display === this._display) {
+    const mouseJiggle = options.mouseJiggle === true;
+    const display = !mouseJiggle && Boolean(options.display);
+    if (this._wanted && display === this._display && mouseJiggle === this._mouseJiggle) {
       return;
     }
     const generation = ++this._generation;
     if (this._wanted) {
-      this._log('info', `Display setting changed (keep display on: ${display}); restarting helper.`);
+      this._log('info', `Helper options changed (keep display on: ${display}, experimental mouse input: ${mouseJiggle}); restarting helper.`);
       this._stopAll();
     }
     this._wanted = true;
     this._display = display;
+    this._mouseJiggle = mouseJiggle;
     this._error = '';
-    const { helpers, error } = buildHelpers({ platform: this._platform, display, pid: this._pid, env: this._env, exists: this._exists });
+    const { helpers, error } = buildHelpers({ platform: this._platform, display, mouseJiggle, pid: this._pid, env: this._env, exists: this._exists });
     const usable = helpers.filter(h => !this._unavailable.has(h.id));
     if (usable.length === 0) {
       this._error = error || [...this._unavailable].map(([id, reason]) => `${id}: ${reason}`).join('; ') || 'No keep-awake helper is available.';
@@ -295,8 +314,9 @@ class KeepAwake extends EventEmitter {
     this._unavailable.clear();
     if (this._wanted && this._state === 'error') {
       const display = this._display;
+      const mouseJiggle = this._mouseJiggle;
       this.release();
-      this.acquire({ display });
+      this.acquire({ display, mouseJiggle });
     }
   }
 
@@ -312,7 +332,7 @@ class KeepAwake extends EventEmitter {
     run.ready = false;
     run.status = 'running';
     run.startedAt = this._now();
-    this._log('debug', `Starting ${spec.id}: ${spec.command} ${spec.args.map(a => (a.length > 80 ? a.slice(0, 77) + '...' : a)).join(' ')}`);
+    this._log('debug', `Starting ${spec.id}: ${spec.command}.`);
     /** @type {import('child_process').ChildProcess} */
     let child;
     try {
@@ -369,7 +389,9 @@ class KeepAwake extends EventEmitter {
     }
     run.ready = true;
     this._clearRunTimer(run);
-    this._log('info', `${run.spec.id} is holding the power request${this._display ? ' (display kept on)' : ''}.`);
+    this._log('info', this._mouseJiggle
+      ? 'Experimental mouse-jiggle helper is running; no native power request or sleep-prevention proof.'
+      : `${run.spec.id} is holding the power request${this._display ? ' (display kept on)' : ''}.`);
     this._refreshState();
   }
 
@@ -402,7 +424,7 @@ class KeepAwake extends EventEmitter {
     // Retrying cannot fix a missing binary or PowerShell Constrained Language Mode (set by IT policy).
     if (enoent || /language mode/i.test(stderr)) {
       if (/language mode/i.test(stderr)) {
-        run.lastError = 'PowerShell is in Constrained Language Mode (set by your organisation), which blocks the Windows power API call.';
+        run.lastError = 'PowerShell is in Constrained Language Mode (set by your organisation), which blocks the Windows native helper.';
       }
       this._giveUp(run);
       return;
@@ -420,6 +442,10 @@ class KeepAwake extends EventEmitter {
    */
   _handleFailure(run, duringStartup) {
     run.failures += 1;
+    if (run.spec.retry === false) {
+      this._giveUp(run);
+      return;
+    }
     const othersHolding = [...this._runs.values()].some(r => r !== run && r.ready);
     // A secondary helper that cannot even start (e.g. gnome-session-inhibit outside GNOME) is not worth retrying.
     if (duringStartup && othersHolding) {

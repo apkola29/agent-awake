@@ -6,6 +6,7 @@ const { randomUUID } = require('node:crypto');
 
 const MAX_HOLD_MS = 24 * 60 * 60_000;
 const STARTUP_TIMEOUT_MS = 10_000;
+const MOUSE_STARTUP_TIMEOUT_MS = 20_000;
 const MAX_OWNERS = 1_024;
 const MAX_IDENTITIES = 4_096;
 const OWNER_FIELDS = new Set(['instanceId', 'generation', 'adapter', 'sessionId', 'operationId', 'kind', 'parentId']);
@@ -57,6 +58,7 @@ const UNAVAILABLE = Object.freeze({
  * @property {ActivityState} state
  * @property {boolean} desired
  * @property {boolean} confirmed
+ * @property {boolean} mouseJiggle
  * @property {number} ownerCount
  * @property {number} generation
  * @property {string} instanceId
@@ -159,6 +161,7 @@ class ActivityCoordinator extends EventEmitter {
     this._startupTimeoutMs = startupTimeoutMs;
     /** @type {ActivityMode} */
     this._mode = 'off';
+    this._mouseJiggle = false;
     this._generation = 0;
     this._durationMs = 0;
     this._manualExpiresAt = 0;
@@ -198,6 +201,16 @@ class ActivityCoordinator extends EventEmitter {
    * @returns {Promise<boolean>}
    */
   manual(durationMs = 0) {
+    return this._startManual(durationMs, false);
+  }
+
+  /** @param {number} [durationMs] @returns {Promise<boolean>} */
+  mouseJiggle(durationMs = 0) {
+    return this._startManual(durationMs, true);
+  }
+
+  /** @param {number} durationMs @param {boolean} mouseJiggle @returns {Promise<boolean>} */
+  _startManual(durationMs, mouseJiggle) {
     if (this._disposed) return Promise.resolve(false);
     if (!validDuration(durationMs)) {
       this._reject('invalid-duration', 'Keep Awake duration must be an integer from 0 to 24 hours in milliseconds.');
@@ -205,12 +218,17 @@ class ActivityCoordinator extends EventEmitter {
     }
     this._expireIfDue();
     if (this._disposed) return Promise.resolve(false);
-    if (this._mode === 'manual' && this._durationMs === durationMs) {
+    if (this._mode === 'manual' && this._durationMs === durationMs && this._mouseJiggle === mouseJiggle) {
       return this._manualWait?.promise ?? Promise.resolve(this.getState().confirmed);
+    }
+    if (this._mouseJiggle !== mouseJiggle && this._powerWanted) {
+      this._turnOff('');
+      if (this._disposed || this._mode !== 'off') return Promise.resolve(false);
     }
     this._settleManual(false);
     this._nextGeneration();
     this._mode = 'manual';
+    this._mouseJiggle = mouseJiggle;
     this._durationMs = durationMs;
     this._manualExpiresAt = durationMs === 0 ? 0 : this._now() + durationMs;
     this._notice = '';
@@ -258,6 +276,7 @@ class ActivityCoordinator extends EventEmitter {
     this._settleManual(false);
     this._nextGeneration();
     this._mode = 'auto';
+    this._mouseJiggle = false;
     this._durationMs = 0;
     this._manualExpiresAt = 0;
     this._notice = this._auto.status === 'verified'
@@ -336,7 +355,7 @@ class ActivityCoordinator extends EventEmitter {
     const desired = ownerCount > 0;
     const backendState = this._backend.state;
     const confirmed = desired && this._powerWanted && backendState === 'on' &&
-      this._nativeAcknowledgement && !this._failure && !this._startupExpired;
+      this._nativeAcknowledgement && !this._mouseJiggle && !this._failure && !this._startupExpired;
     /** @type {ActivityState} */
     let state;
     if (this._mode === 'off') state = 'off';
@@ -348,10 +367,12 @@ class ActivityCoordinator extends EventEmitter {
     else if (this._startupTimer || backendState === 'starting') state = 'starting';
     else state = 'failed';
     const unverified = state === 'unverified'
-      ? 'The helper is running, but its native power assertion is unverified. Process survival is not confirmation.'
+      ? this._mouseJiggle
+        ? 'Experimental mouse jiggle is running. Synthetic input is not proof of sleep prevention and may delay automatic locking.'
+        : 'The helper is running, but its native power assertion is unverified. Process survival is not confirmation.'
       : '';
     return {
-      mode: this._mode, state, desired, confirmed, ownerCount,
+      mode: this._mode, state, desired, confirmed, mouseJiggle: this._mouseJiggle, ownerCount,
       generation: this._generation, instanceId: this._instanceId,
       durationMs: this._durationMs, expiresAt: this._nearestDeadline(),
       error: state === 'failed' ? this._failure || this._backend.error || 'Keep Awake protection is not active.' : '',
@@ -367,6 +388,7 @@ class ActivityCoordinator extends EventEmitter {
     this._settleManual(false);
     this._nextGeneration();
     this._mode = 'off';
+    this._mouseJiggle = false;
     this._durationMs = 0;
     this._manualExpiresAt = 0;
     this._notice = '';
@@ -408,6 +430,7 @@ class ActivityCoordinator extends EventEmitter {
     this._settleManual(false);
     this._nextGeneration();
     this._mode = 'off';
+    this._mouseJiggle = false;
     this._durationMs = 0;
     this._manualExpiresAt = 0;
     this._notice = notice;
@@ -427,7 +450,7 @@ class ActivityCoordinator extends EventEmitter {
       try {
         this._backend.resetFailures?.();
         if (!this._disposed && this._powerWanted && this._powerVersion === version) {
-          this._backend.acquire({ display: this._keepDisplayOn });
+          this._backend.acquire(this._mouseJiggle ? { mouseJiggle: true } : { display: this._keepDisplayOn });
         }
       } catch {
         if (!this._disposed && this._powerWanted && this._powerVersion === version) {
@@ -462,7 +485,7 @@ class ActivityCoordinator extends EventEmitter {
         this._failure = '';
         this._startupExpired = false;
         this._clearStartup();
-        this._settleManual(this._nativeAcknowledgement);
+        this._settleManual(this._nativeAcknowledgement && !this._mouseJiggle);
       } else if (state === 'error') {
         this._fail(this._backend.error || 'Keep Awake could not start its native helper.', 'backend-error');
       } else if (state === 'off') {
@@ -484,6 +507,11 @@ class ActivityCoordinator extends EventEmitter {
     this._failure = error;
     this._clearStartup();
     this._settleManual(false);
+    if (this._mouseJiggle && this._powerWanted) {
+      this._powerWanted = false;
+      this._powerVersion++;
+      try { this._backend.release(); } catch { this._writeLog('warn', 'backend-release-failed'); }
+    }
     if (!this._warnings.has(category)) {
       this._warnings.add(category);
       this._writeLog('warn', category);
@@ -499,16 +527,17 @@ class ActivityCoordinator extends EventEmitter {
 
   _armStartup() {
     if (this._startupTimer || this._disposed || !this._powerWanted) return;
+    const timeoutMs = this._mouseJiggle ? MOUSE_STARTUP_TIMEOUT_MS : this._startupTimeoutMs;
     /** @type {ScheduledTimer} */
-    const timer = { at: this._now() + this._startupTimeoutMs };
+    const timer = { at: this._now() + timeoutMs };
     this._startupTimer = timer;
     timer.handle = this._setTimer(() => {
       if (this._startupTimer !== timer || this._disposed || !this._powerWanted || !this._ownerCount()) return;
       this._startupTimer = undefined;
       this._startupExpired = true;
-      this._fail(`Keep Awake did not confirm protection within ${this._startupTimeoutMs} ms. Use Off to stop or retry.`, 'startup-deadline');
+      this._fail(`Keep Awake did not confirm protection within ${timeoutMs} ms. Use Off to stop or retry.`, 'startup-deadline');
       this._publish();
-    }, this._startupTimeoutMs);
+    }, timeoutMs);
     if (this._startupTimer !== timer) this._clearTimer(timer.handle);
   }
 

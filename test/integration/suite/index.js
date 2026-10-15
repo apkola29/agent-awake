@@ -484,7 +484,7 @@ async function run() {
     const commands = await vscode.commands.getCommands(true);
     /** @type {string[]} */
     const contributed = (ext.packageJSON.contributes?.commands ?? []).map((/** @type {{command: string}} */ item) => item.command);
-    for (const name of ['selectMode', 'keepAwake', 'autoMode', 'turnOff', 'toggleSession', 'stopSession']) {
+    for (const name of ['selectMode', 'keepAwake', 'autoMode', 'turnOff', 'toggleSession', 'stopSession', 'startMouseJiggle']) {
       assert.ok(commands.includes(`agentKeepAwake.${name}`), `agentKeepAwake.${name} is registered`);
       assert.ok(contributed.includes(`agentKeepAwake.${name}`), `agentKeepAwake.${name} is contributed in the manifest`);
     }
@@ -945,12 +945,17 @@ async function run() {
   }, { keepsHold: true });
 
   console.log(`\nAgent Keep-Awake native control tests (VS Code ${vscode.version}, ${process.platform}/${process.arch}, extension ${ext.packageJSON.version})`);
+  const fragments = (process.env.AKA_TEST_NAME || '').split('|').filter(Boolean);
+  const matches = fragments.length ? tests.filter(t => fragments.some(name => t.name.includes(name))) : tests;
+  assert.ok(matches.length, 'the requested literal test-name selection must match a case');
+  const selected = fragments.length ? tests.filter(t => matches.includes(t) || t.keepsHold) : tests;
+  if (fragments.length) console.log(`FILTERED: ${selected.length} cases including mandatory editor-shutdown ownership; ${tests.length - selected.length} not selected, not counted as passing.`);
   const suiteStarted = Date.now();
   let failures = 0;
   let passed = 0;
   let abortedBy = '';
   try {
-    for (const t of tests) {
+    for (const t of selected) {
       if (abortedBy) {
         failures++;
         console.error(`NOT RUN ${t.name} (${abortedBy})`);

@@ -17,7 +17,7 @@ const GREEN = 'testing.iconPassed';
 const HOUR_MS = 60 * 60_000;
 const COMMANDS = [
   'selectMode', 'keepAwake', 'autoMode', 'turnOff',
-  'toggleSession', 'chooseDuration', 'openSettings', 'stopSession', 'showStatus', 'showLog'
+  'toggleSession', 'chooseDuration', 'openSettings', 'stopSession', 'showStatus', 'showLog', 'startMouseJiggle'
 ];
 
 /**
@@ -244,13 +244,13 @@ class FakeBackend extends EventEmitter {
     this.pids = [];
     /** @type {string[]} */
     this.activeHelpers = [];
-    /** @type {{ call: string, display?: boolean }[]} */
+    /** @type {{ call: string, display?: boolean, mouseJiggle?: boolean }[]} */
     this.calls = [];
   }
 
-  /** @param {{ display?: boolean }} [options] */
+  /** @param {{ display?: boolean, mouseJiggle?: boolean }} [options] */
   acquire(options = {}) {
-    this.calls.push({ call: 'acquire', display: Boolean(options.display) });
+    this.calls.push({ call: 'acquire', display: Boolean(options.display), ...(options.mouseJiggle ? { mouseJiggle: true } : {}) });
     if (this.failWith) {
       this.error = this.failWith;
       this.setState('error');
@@ -520,6 +520,121 @@ test('the loaded version is written to the log so an installed package can be to
   const f = fixture({ version: '1.1.0' });
   try {
     assert.ok(f.logs.info.some(line => /^Agent Awake 1\.1\.0 loaded\./.test(line)), JSON.stringify(f.logs.info));
+  } finally { f.dispose(); }
+});
+
+test('mouse fallback is never started without per-session explicit consent', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true });
+  try {
+    assert.equal(await f.run('startMouseJiggle'), false);
+    assert.equal(f.api.getState().mode, 'off');
+    assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
+    assert.match(f.messages[0].text, /automatic locking/i);
+    assert.match(f.messages[0].text, /policy permits/i);
+  } finally { f.dispose(); }
+});
+
+test('mouse fallback starts only through its explicit command, stays warning-colored, and the cup is Off', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true, durationHours: 2 });
+  try {
+    f.answerToastsWith(toast => toast.actions[0]);
+    assert.equal(await f.run('startMouseJiggle'), false);
+    const state = f.api.getState();
+    assert.equal(state.mouseJiggle, true);
+    assert.equal(state.confirmed, false);
+    assert.equal(state.keepsDisplayOn, false);
+    assert.equal(state.durationMs, 2 * HOUR_MS);
+    assert.equal(state.state, 'unverified');
+    assert.notEqual(f.view().color, GREEN);
+    assert.match(f.view().tooltip, /mouse jiggle/i);
+    assert.ok(f.backend.calls.some(call => call.mouseJiggle === true));
+    await f.run('toggleSession');
+    assert.equal(f.api.getState().mode, 'off');
+  } finally { f.dispose(); }
+});
+
+test('Off during a mouse consent prompt prevents late consent from enabling input', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true });
+  /** @type {((choice: string) => void) | undefined} */
+  let answer;
+  try {
+    f.answerToastsWith(() => new Promise(resolve => { answer = resolve; }));
+    const pending = f.run('startMouseJiggle');
+    await f.flush();
+    await f.run('turnOff');
+    assert.ok(answer);
+    answer('Start mouse jiggle');
+    assert.equal(await pending, false);
+    assert.equal(f.api.getState().mode, 'off');
+    assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
+  } finally { f.dispose(); }
+});
+
+test('mouse fallback is unavailable on non-Windows and cannot replace an active native session', async () => {
+  for (const platform of /** @type {NodeJS.Platform[]} */ (['darwin', 'win32'])) {
+    const f = fixture({ platform, realCoordinator: true });
+    try {
+      if (platform === 'win32') await f.run('keepAwake');
+      const before = f.api.getState();
+      f.answerToastsWith(toast => toast.actions[0]);
+      assert.equal(await f.run('startMouseJiggle'), false);
+      assert.equal(f.api.getState().mode, before.mode);
+      assert.equal(f.backend.calls.some(call => call.mouseJiggle === true), false);
+    } finally { f.dispose(); }
+  }
+});
+
+test('a contradictory coordinator snapshot still cannot show confirmed green for experimental input', () => {
+  const f = fixture({ platform: 'win32' });
+  try {
+    f.coordinator.show({ ...manualOn(), mouseJiggle: true });
+    assert.equal(f.api.getState().confirmed, false);
+    assert.equal(f.api.getState().state, 'unverified');
+    assert.notEqual(f.view().color, GREEN);
+    assert.match(f.view().label, /mouse jiggle.*unverified/i);
+  } finally { f.dispose(); }
+});
+
+test('invalid duration cannot open a mouse consent prompt or enable indefinite input', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true, durationHours: -1 });
+  try {
+    assert.equal(await f.run('startMouseJiggle'), false);
+    assert.equal(f.messages.length, 1);
+    assert.equal(f.messages[0].level, 'error');
+    assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
+  } finally { f.dispose(); }
+});
+
+test('duplicate mouse commands share no permission and cannot open multiple consent workflows', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true });
+  /** @type {((choice: string | undefined) => void) | undefined} */
+  let answer;
+  try {
+    f.answerToastsWith(toast => toast.actions.length ? new Promise(resolve => { answer = resolve; }) : undefined);
+    const pending = f.run('startMouseJiggle');
+    await f.flush();
+    assert.equal(await f.run('startMouseJiggle'), false);
+    assert.equal(f.messages.filter(message => message.actions.length > 0).length, 1);
+    assert.ok(answer);
+    answer(undefined);
+    assert.equal(await pending, false);
+    assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
+  } finally { f.dispose(); }
+});
+
+test('disposing the host while mouse consent is open invalidates a late approval', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true });
+  /** @type {((choice: string) => void) | undefined} */
+  let answer;
+  try {
+    f.answerToastsWith(() => new Promise(resolve => { answer = resolve; }));
+    const pending = f.run('startMouseJiggle');
+    await f.flush();
+    f.dispose();
+    assert.ok(answer);
+    answer('Start mouse jiggle');
+    assert.equal(await pending, false);
+    assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
   } finally { f.dispose(); }
 });
 
@@ -1152,7 +1267,7 @@ test('getState merges the sanitized coordinator snapshot with status, version an
       capability: 'SECRET-CAPABILITY', endpoint: '\\\\.\\pipe\\secret-endpoint'
     });
     assert.deepEqual(plain(f.api.getState()), {
-      supported: true, version: '1.1.0', keepsDisplayOn: true,
+      supported: true, version: '1.1.0', keepsDisplayOn: true, mouseJiggle: false,
       mode: 'manual', state: 'on', desired: true, confirmed: true, ownerCount: 1, generation: 1,
       instanceId: 'instance-under-test', durationMs: 0, expiresAt: 0, error: '', notice: 'a notice',
       auto: { status: 'unavailable', harness: 'VS Code Local/Copilot', reason: AUTO_REASON },

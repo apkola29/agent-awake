@@ -13,7 +13,7 @@ const extensionSource = fs.readFileSync(path.join(root, 'src', 'extension.js'), 
 
 const COMMANDS = [
   'selectMode', 'keepAwake', 'autoMode', 'turnOff',
-  'toggleSession', 'chooseDuration', 'openSettings', 'stopSession', 'showStatus', 'showLog'
+  'toggleSession', 'chooseDuration', 'openSettings', 'stopSession', 'showStatus', 'showLog', 'startMouseJiggle'
 ];
 
 /** @typedef {{ command: string, title: string, category?: string, enablement?: string }} ContributedCommand */
@@ -40,8 +40,8 @@ test('activates lazily after start-up and runs on the local machine first', () =
   assert.ok(fs.existsSync(path.join(root, pkg.main)));
 });
 
-test('is Agent Awake 1.2.3 with the original upgrade identity and matching lockfile metadata', () => {
-  assert.equal(pkg.version, '1.2.3');
+test('is Agent Awake 1.3.0 with the original upgrade identity and matching lockfile metadata', () => {
+  assert.equal(pkg.version, '1.3.0');
   assert.equal(pkg.displayName, 'Agent Awake');
   assert.equal(pkg.name, 'agent-keep-awake', 'preserve installed users and Marketplace updates');
   assert.equal(pkg.publisher, 'apkola29');

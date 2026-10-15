@@ -9,6 +9,7 @@ const SECTION = 'agentKeepAwake';
 const NAME = 'Agent Awake';
 const HOUR_MS = 60 * 60_000;
 const DURATION_ERROR = 'Keep Awake: Duration (Hours) must be a number from 0 to 24. Use 0 for until you turn it off.';
+const MOUSE_ACTION = 'Start mouse jiggle';
 const AUTO_CAPABILITY = {
   status: /** @type {const} */ ('unavailable'),
   harness: 'VS Code Local/Copilot',
@@ -68,11 +69,13 @@ function countOf(value) {
  */
 function normalize(raw) {
   const auto = raw.auto && typeof raw.auto === 'object' ? raw.auto : {};
+  const mouseJiggle = raw.mouseJiggle === true;
   return {
     mode: textOf(raw.mode, 'off'),
-    state: textOf(raw.state, 'off'),
+    state: mouseJiggle && raw.state === 'on' ? 'unverified' : textOf(raw.state, 'off'),
     desired: raw.desired === true,
-    confirmed: raw.confirmed === true,
+    confirmed: raw.confirmed === true && !mouseJiggle,
+    mouseJiggle,
     ownerCount: countOf(raw.ownerCount),
     generation: countOf(raw.generation),
     instanceId: textOf(raw.instanceId),
@@ -97,7 +100,7 @@ function normalize(raw) {
 function present(s, windows) {
   const auto = s.mode === 'auto';
   const mode = auto ? 'Auto - Copilot activity' : s.mode === 'manual' ? 'Keep awake' : 'Off';
-  const subject = auto ? 'Auto' : 'Keep Awake';
+  const subject = s.mouseJiggle ? 'Mouse jiggle' : auto ? 'Auto' : 'Keep Awake';
   const reason = s.auto.reason || AUTO_CAPABILITY.reason;
   const when = s.expiresAt > 0 ? formatTime(s.expiresAt) : '';
   /** @type {string[]} */
@@ -150,9 +153,13 @@ function present(s, windows) {
   } else if (s.state === 'unverified') {
     text = `$(warning) ${subject}: Unverified`;
     background = 'warning';
-    lines.push(`Mode: ${mode}. Unverified. This operating system has not confirmed the sleep request, so it may not prevent sleep.`);
+    lines.push(s.mouseJiggle
+      ? 'Mode: Experimental mouse jiggle. Unverified. The helper may simulate a tiny paired mouse movement after 30 seconds without input. This is not proof of sleep prevention.'
+      : `Mode: ${mode}. Unverified. This operating system has not confirmed the sleep request, so it may not prevent sleep.`);
     hint = 'Do not rely on it. Click to turn Off.';
-    label = `${NAME}: ${mode} is unverified. The operating system has not confirmed sleep protection.`;
+    label = s.mouseJiggle
+      ? `${NAME}: experimental mouse jiggle is running but unverified. Synthetic input may delay automatic locking; sleep prevention is not confirmed.`
+      : `${NAME}: ${mode} is unverified. The operating system has not confirmed sleep protection.`;
   } else if (s.state === 'unavailable') {
     text = '$(warning) Auto: Unavailable';
     background = 'warning';
@@ -181,7 +188,8 @@ function present(s, windows) {
   if (auto) lines.push(`Harness: ${s.auto.harness || 'unknown'}.`);
   if (s.error) lines.push(`Error: ${s.error}`);
   if (s.notice && !lines.join(' ').includes(s.notice)) lines.push(`Notice: ${s.notice}`);
-  if (windows) lines.push(WINDOWS_NOTE);
+  if (s.mouseJiggle) lines.push('Synthetic input can affect the pointer and delay automatic locking. Use only where device policy permits. Lock/session change stops this helper; it never unlocks or restarts itself.');
+  else if (windows) lines.push(WINDOWS_NOTE);
   return { text, green: s.confirmed, background, lines, hint, label };
 }
 
@@ -218,6 +226,7 @@ function activate(context) {
   const green = new vscode.ThemeColor('testing.iconPassed');
 
   const state = () => normalize(coordinator.getState());
+  let mouseConsentPending = false;
 
   /**
    * A toast resolves only when it is dismissed, so commands never await one.
@@ -254,6 +263,43 @@ function activate(context) {
 
   function turnOff() {
     coordinator.off();
+  }
+
+  async function startMouseJiggle() {
+    const before = state();
+    if (!windows || before.mode !== 'off' || mouseConsentPending) {
+      const message = !windows ? 'Experimental mouse jiggle is Windows-only.'
+        : mouseConsentPending ? 'A mouse-jiggle confirmation is already open.'
+          : 'Turn Off the current session before selecting experimental mouse jiggle.';
+      log.warn(message);
+      void notify('warn', message);
+      return false;
+    }
+    const hours = vscode.workspace.getConfiguration(SECTION).get('durationHours', 0);
+    if (!validHours(hours)) {
+      log.error(DURATION_ERROR);
+      void notify('error', DURATION_ERROR);
+      return false;
+    }
+    mouseConsentPending = true;
+    try {
+      const choice = await notify('warn',
+        'Experimental mouse jiggle generates synthetic pointer input and may delay automatic locking. Use only where device policy permits. It is unverified, does not detect chat activity, and stops on Off, expiry or window close. Start this session?',
+        [MOUSE_ACTION]);
+      const current = state();
+      if (choice !== MOUSE_ACTION || current.mode !== 'off' || current.generation !== before.generation) {
+        log.info('Mouse-jiggle confirmation was canceled or became stale; no input helper started.');
+        return false;
+      }
+      log.warn('Starting explicitly approved experimental mouse jiggle. No native sleep-prevention guarantee.');
+      return await coordinator.mouseJiggle(Math.round(hours * HOUR_MS));
+    } catch (error) {
+      log.error(`Experimental mouse jiggle could not start: ${messageOf(error)}`);
+      void notify('error', 'Experimental mouse jiggle could not start. Do not assume sleep is blocked.');
+      return false;
+    } finally {
+      mouseConsentPending = false;
+    }
   }
 
   /** @returns {boolean} */
@@ -381,6 +427,7 @@ function activate(context) {
     vscode.commands.registerCommand(`${SECTION}.stopSession`, turnOff),
     vscode.commands.registerCommand(`${SECTION}.showStatus`, showStatus),
     vscode.commands.registerCommand(`${SECTION}.showLog`, () => log.show(true)),
+    vscode.commands.registerCommand(`${SECTION}.startMouseJiggle`, startMouseJiggle),
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration(SECTION)) render();
     })
@@ -391,11 +438,12 @@ function activate(context) {
     startKeepAwake: (/** @type {number} */ durationMs) => coordinator.manual(durationMs),
     stopKeepAwake: () => coordinator.off(),
     getState() {
+      const current = state();
       return {
-        ...state(),
+        ...current,
         supported: true,
         version,
-        keepsDisplayOn: windows,
+        keepsDisplayOn: windows && !current.mouseJiggle,
         statusText: status.text,
         statusCommand: status.command,
         statusColor: status.color instanceof vscode.ThemeColor ? status.color.id : status.color

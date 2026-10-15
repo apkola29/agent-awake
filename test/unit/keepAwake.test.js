@@ -54,6 +54,13 @@ test.describe('buildHelpers', () => {
     assert.ok(windowsScript(false).includes('[uint32]2147483649'));
   });
 
+  test('experimental input is Windows-only and never changes the native helper by default', () => {
+    const denied = buildHelpers({ platform: 'darwin', display: false, mouseJiggle: true, pid: 1, env: {}, exists: () => true });
+    assert.equal(denied.helpers.length, 0);
+    assert.match(String(denied.error), /only on Windows/);
+    assert.doesNotMatch(windowsScript(true), /SendInput|Get-JiggleAction/);
+  });
+
   test('windows script is command-line safe and never touches disk or settings', () => {
     for (const display of [false, true]) {
       const s = windowsScript(display);
@@ -123,6 +130,42 @@ test.describe('buildHelpers', () => {
 });
 
 test.describe('KeepAwake lifecycle', () => {
+  test('mouse input is explicit, has one owned helper, and never restarts after failure', () => {
+    const { ka, sp, clock } = setup();
+    ka.acquire({ mouseJiggle: true });
+    assert.equal(sp.children.length, 1);
+    const child = sp.last().spawned().ready();
+    assert.deepEqual(ka.activeHelpers, ['mouse-jiggle']);
+    const encoded = child.args[child.args.indexOf('-EncodedCommand') + 1];
+    const script = Buffer.from(encoded, 'base64').toString('utf16le');
+    assert.match(script, /Get-JiggleAction/);
+    assert.doesNotMatch(script, /SetThreadExecutionState/);
+    ka.acquire({ mouseJiggle: true });
+    assert.equal(sp.children.length, 1);
+    child.writeStderr('The desktop is locked; start again manually.').exit(4);
+    assert.equal(ka.state, 'error');
+    assert.equal(clock.pending(), 0);
+    clock.advance(120_000);
+    assert.equal(sp.children.length, 1, 'no automatic input restart');
+    ka.release();
+    assert.equal(ka.state, 'off');
+    ka.dispose();
+  });
+
+  test('native remains the default and switching away from mouse input stops only its helper', () => {
+    const { ka, sp, clock } = setup();
+    ka.acquire({ mouseJiggle: true });
+    const mouse = sp.last().spawned().ready();
+    ka.acquire({ display: true });
+    assert.equal(mouse.killed, true);
+    assert.equal(mouse.stdin.ended, true);
+    assert.equal(sp.children.length, 2);
+    sp.last().spawned().ready();
+    assert.deepEqual(ka.activeHelpers, ['powershell']);
+    ka.dispose();
+    assert.equal(clock.pending(), 0);
+  });
+
   test('release from the starting event prevents all helper spawning', () => {
     const { ka, sp, clock } = setup();
     ka.on('change', state => {

@@ -25,7 +25,7 @@ class FakeBackend extends EventEmitter {
     this.pids = [];
     /** @type {string[]} */
     this.activeHelpers = [];
-    /** @type {{display?: boolean}[]} */
+    /** @type {{display?: boolean, mouseJiggle?: boolean}[]} */
     this.acquisitions = [];
     this.releases = 0;
     this.disposals = 0;
@@ -37,7 +37,7 @@ class FakeBackend extends EventEmitter {
     this.afterAcquire = undefined;
   }
 
-  /** @param {{display?: boolean}} [options] */
+  /** @param {{display?: boolean, mouseJiggle?: boolean}} [options] */
   acquire(options = {}) {
     this.acquisitions.push({ ...options });
     this.wanted = true;
@@ -258,6 +258,52 @@ test.describe('ActivityCoordinator capability and snapshots', () => {
 });
 
 test.describe('ActivityCoordinator manual ownership', () => {
+  test('explicit mouse session reuses bounded manual ownership but is never native-confirmed', async () => {
+    const { coordinator, backend, clock } = setup();
+    const pending = coordinator.mouseJiggle(30_000);
+    assert.deepEqual(backend.acquisitions, [{ mouseJiggle: true }]);
+    backend.change('on');
+    assert.equal(await pending, false, 'running input helper is not proof of sleep prevention');
+    assert.equal(coordinator.getState().mouseJiggle, true);
+    assert.equal(coordinator.getState().confirmed, false);
+    assert.equal(coordinator.getState().state, 'unverified');
+    clock.advance(30_000);
+    assert.equal(coordinator.getState().mode, 'off');
+    assert.equal(coordinator.getState().mouseJiggle, false);
+    assert.equal(backend.releases, 1);
+    assert.equal(clock.pending(), 0);
+    coordinator.dispose();
+  });
+
+  test('switching from experimental input to native manual releases the old method first', async () => {
+    const { coordinator, backend } = setup();
+    const input = coordinator.mouseJiggle();
+    backend.change('on');
+    await input;
+    const native = coordinator.manual();
+    assert.equal(backend.releases, 1);
+    assert.deepEqual(backend.acquisitions, [{ mouseJiggle: true }, { display: true }]);
+    assert.equal(coordinator.getState().mouseJiggle, false);
+    backend.change('on');
+    assert.equal(await native, true);
+    coordinator.dispose();
+  });
+
+  test('experimental input startup failure releases the helper and a late On event cannot enable it', async () => {
+    const { coordinator, backend, clock } = setup();
+    const pending = coordinator.mouseJiggle();
+    clock.advance(20_000);
+    assert.equal(await pending, false);
+    assert.equal(coordinator.getState().state, 'failed');
+    assert.equal(backend.releases, 1);
+    assert.equal(clock.pending(), 0);
+    backend.change('on');
+    assert.equal(coordinator.getState().confirmed, false);
+    assert.equal(coordinator.getState().state, 'failed');
+    coordinator.off();
+    coordinator.dispose();
+  });
+
   test('default Manual waits for acknowledgement and then has no expiry timer', async () => {
     const { coordinator, backend, clock, changes } = setup();
     let settled = false;
