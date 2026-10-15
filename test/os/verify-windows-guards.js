@@ -66,7 +66,7 @@ async function main() {
     { unlocked: true, idle: 30, pressed: false, expected: 'move' },
     { unlocked: true, idle: 300, pressed: false, expected: 'move' },
     { unlocked: true, idle: 0, pressed: false, expected: 'skip' },
-    { unlocked: true, idle: 4294967, pressed: false, expected: 'skip' }
+    { unlocked: true, idle: 4294967, pressed: false, expected: 'invalid' }
   ];
   const idlePolicy = fs.readFileSync(path.join(__dirname, 'observe-window-windows.ps1'), 'utf8')
     .match(/function Test-GenuineIdle \{[\s\S]*?\r?\n\}/)?.[0];
@@ -125,7 +125,7 @@ async function main() {
     { name: 'canceled-before-send', canceled: true, expectedSends: 0 },
     { name: 'signed-tick-boundary', now: 2_147_513_649, last: -2_147_483_647 },
     { name: 'tick-wrap', now: 29_900, last: -100 },
-    { name: 'future-timestamp', now: 30_000, last: 60_000, expectedSends: 0 }
+    { name: 'future-timestamp', now: 30_000, last: 60_000, expectedSends: 0, error: 'unusable last-input timestamp' }
   ].map(sample => ({ ...defaults, ...sample }));
   const flowProgram = [
     "$ErrorActionPreference='Stop'", fixture, policy, desktopFunction, pulseFunction,

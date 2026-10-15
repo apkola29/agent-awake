@@ -48,6 +48,8 @@ close/reload or helper failure stops the owned session.
 - It requires the unlocked physical-console desktop. Lock/session change or
   an inaccessible desktop stops it rather than attempting to unlock or resume.
   Unexpected exit never automatically restarts synthetic input.
+- An unusable/future last-input timestamp stops with an explicit error rather
+  than leaving a silently nonfunctional helper running.
 - Initialization is bounded to 20 seconds because this route also verifies
   desktop/session access. A timeout releases the helper, so a late startup
   cannot begin input after reporting failure. Native startup keeps its existing
@@ -69,6 +71,13 @@ allocation against a stub native class. It checks the paired mouse-only buffer,
 idle boundaries, held input, locked/changed desktop, canceled input, partial
 rejection and 32-bit tick wrap. These are control-flow and memory-layout checks,
 not evidence that a live Windows input event prevents sleep.
+
+The native `test:idle:windows` checker is **not** mouse-jiggle acceptance: it
+requires a native system/display request and an unchanged last-input interval.
+Mouse mode intentionally resets the last-input timer and creates no native
+request. Its separate supervised acceptance must account for those generated
+events and rule out other wake sources. No live mouse-mode hardware pass has
+been recorded.
 
 ```powershell
 node .\test\os\verify-windows-guards.js

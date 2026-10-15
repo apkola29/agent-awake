@@ -30,7 +30,8 @@ $n = $type.CreateType()
 function Get-JiggleAction {
   param([bool]$Unlocked, [double]$IdleSeconds, [bool]$Pressed)
   if (-not $Unlocked) { return 'stop' }
-  if ($Pressed -or $IdleSeconds -lt 30 -or $IdleSeconds -gt 86400) { return 'skip' }
+  if ($IdleSeconds -gt 86400) { return 'invalid' }
+  if ($Pressed -or $IdleSeconds -lt 30) { return 'skip' }
   return 'move'
 }
 
@@ -59,6 +60,7 @@ function Invoke-JigglePulse {
   }
   $action = Get-JiggleAction -Unlocked $unlocked -IdleSeconds $idle -Pressed $pressed
   if ($action -eq 'stop') { throw 'Mouse jiggle stopped because the desktop locked or the console session changed. Start again manually.' }
+  if ($action -eq 'invalid') { throw 'Mouse jiggle stopped because Windows returned an unusable last-input timestamp. Start again manually.' }
   if ($action -eq 'move') {
     if ($read.IsCompleted) { return }
     if ($n::SendInput([uint32]2, $inputs, $inputSize) -ne 2) { throw 'Mouse jiggle input was rejected; the helper has stopped.' }

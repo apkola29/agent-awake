@@ -26,6 +26,8 @@ test('pulse policy is bounded, stops on an inaccessible desktop and skips recent
   const policy = windowsMouseJiggleScript().match(/function Get-JiggleAction \{[\s\S]*?\r?\n\}/)?.[0];
   assert.ok(policy);
   assert.match(policy, /if \(-not \$Unlocked\) \{ return 'stop' \}/);
-  assert.match(policy, /\$Pressed -or \$IdleSeconds -lt 30 -or \$IdleSeconds -gt 86400/);
+  assert.match(policy, /if \(\$IdleSeconds -gt 86400\) \{ return 'invalid' \}/);
+  assert.match(policy, /\$Pressed -or \$IdleSeconds -lt 30/);
+  assert.match(windowsMouseJiggleScript(), /if \(\$action -eq 'invalid'\) \{ throw /);
   assert.ok(policy.indexOf("return 'skip'") < policy.indexOf("return 'move'"));
 });

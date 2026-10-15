@@ -16,6 +16,8 @@
 - Exercise the production pulse and allocation path through a non-native stub:
   16 cases cover input-buffer layout, recent/held input, lock/session changes,
   cancellation, API rejection and clock wrap. No live mouse API is called.
+- Stop visibly on unusable last-input timestamps rather than silently skipping
+  indefinitely. This is a fail-closed guard, not a verified sleep fix.
 
 ## Unreleased local development - 1.2.3
 
