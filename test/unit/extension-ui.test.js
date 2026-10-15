@@ -523,6 +523,28 @@ test('the loaded version is written to the log so an installed package can be to
   } finally { f.dispose(); }
 });
 
+test('shows the loaded version in the tooltip, status and accessibility label', async () => {
+  const f = fixture({ version: '1.0.4' });
+  try {
+    assert.equal(f.api.getState().version, '1.0.4');
+    assert.match(f.view().tooltip, /Loaded version: 1\.0\.4 in this window/);
+    assert.match(f.view().label, /Loaded version: 1\.0\.4 in this window/);
+    await f.run('showStatus');
+    assert.match(f.messages[f.messages.length - 1].text, /Loaded version: 1\.0\.4 in this window/);
+  } finally { f.dispose(); }
+});
+
+test('native acknowledgement never promises that the computer actually stays awake', async () => {
+  const f = fixture({ platform: 'win32' });
+  try {
+    await f.run('keepAwake');
+    const view = f.view();
+    assert.doesNotMatch(`${view.tooltip} ${view.label}`, /your computer (?:stays awake|is being kept awake)/i);
+    assert.match(view.tooltip, /Native acknowledgement is not proof of unattended sleep prevention/);
+    assert.match(view.label, /native power request.*acknowledged/i);
+  } finally { f.dispose(); }
+});
+
 test('the primary commands and the existing timed/stop aliases are all registered, and only those', () => {
   const f = fixture();
   try {
@@ -815,13 +837,13 @@ const DISPLAYS = [
   },
   {
     name: 'starting', scene: () => scenes.starting(0), text: '$(sync~spin) Keep Awake: Starting...',
-    tooltip: [/Mode: Keep awake\. Starting\./, /not confirmed yet/, /not protected/],
+    tooltip: [/Mode: Keep awake\. Starting\./, /not confirmed yet/, /do not assume sleep is blocked/],
     label: [/Keep awake is starting/, /not confirmed/]
   },
   {
     name: 'confirmed until off', scene: () => scenes.manualOn(0), text: '$(coffee)', color: GREEN,
     tooltip: [/Mode: Keep awake\. On, confirmed\./, /until you turn it off or close this window/, /No expiry timer is running/, /Off never cancels Copilot/],
-    label: [/Keep awake is on and confirmed/, /until you turn it off/, /being kept awake/]
+    label: [/Keep awake is on and confirmed/, /until you turn it off/, /native power request.*acknowledged/i]
   },
   {
     name: 'confirmed Auto', scene: scenes.autoOn, text: '$(coffee)', color: GREEN,

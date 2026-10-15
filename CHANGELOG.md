@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased local development - 1.2.3
+
+- Show the version actually loaded in this window in the tooltip, screen-reader
+  label and Show Status, rather than making users infer it from installed files.
+- Replace absolute stays-awake assurances with native-request acknowledgement
+  and an explicit statement that it is not unattended sleep-prevention proof.
+- Clarify that chat activity does not activate this manual prototype.
+- These disclosure fixes do not fix or certify hardware sleep prevention.
+  No 1.2.3 package, installation, public push or deployment is authorized.
+
 ## 1.2.2 distribution withdrawn - 2026-10-14
 
 - Withdraw the GitHub binary release and Pages site, and unpublish the

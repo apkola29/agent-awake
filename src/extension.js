@@ -113,30 +113,32 @@ function present(s, windows) {
     const span = timed ? `until ${when || 'its timer ends'}` : 'until you turn it off';
     text = '$(coffee)';
     if (auto) {
-      lines.push(`Mode: ${mode}. On, confirmed. Your computer stays awake while tracked Copilot work is active (${s.ownerCount} tracked).`);
+      lines.push(`Mode: ${mode}. On, confirmed. Native power request acknowledged for tracked Copilot work (${s.ownerCount} tracked).`);
       if (s.state === 'limited') lines.push('Coverage is limited: only the Copilot work that can be observed is protected.');
     } else if (timed) {
       lines.push(`Mode: ${mode}. On, confirmed ${span}.`);
     } else {
-      lines.push(`Mode: ${mode}. On, confirmed. Your computer stays awake until you turn it off or close this window. No expiry timer is running.`);
+      lines.push(`Mode: ${mode}. On, confirmed. Native power request acknowledged until you turn it off or close this window. No expiry timer is running.`);
     }
+    lines.push('Native acknowledgement is not proof of unattended sleep prevention. OS policies may still allow sleep.');
     if (!auto) lines.push('Keep awake does not depend on Copilot, hooks, a model or a sign-in.');
     if (auto && when) lines.push(`Safeguard: protection for tracked work stops by ${when}, even though work may still be running.`);
     hint = 'Click to turn Off (allow sleep). Off never cancels Copilot. Use Choose Mode for other options.';
     label = auto
-      ? `${NAME}: ${mode} is on and confirmed. Tracked Copilot work is keeping your computer awake.`
-      : `${NAME}: ${mode} is on and confirmed ${span}. Your computer is being kept awake.`;
+      ? `${NAME}: ${mode} is on and confirmed. A native power request was acknowledged for tracked work; OS policies may still allow sleep.`
+      : `${NAME}: ${mode} is on and confirmed ${span}. A native power request was acknowledged; OS policies may still allow sleep.`;
   } else if (s.state === 'off') {
     text = '$(coffee) @awake ready';
     lines.push(`Mode: Off. ${NAME} is not holding any sleep request, so your computer can sleep. Other apps may still keep it awake.`);
     lines.push('Opening VS Code never turns this on.');
+    lines.push('Chat activity does not turn this on; click the cup before a long run.');
     if (s.auto.status === 'unavailable') lines.push('Auto - Copilot activity is unavailable in this build.');
     else if (s.auto.status === 'limited') lines.push('Auto - Copilot activity has limited coverage in this build.');
     hint = 'Click to enable your configured duration. The default is until you turn it off. Auto is only available through Choose Mode when supported.';
     label = `${NAME}: Off. Your computer can sleep. Click to enable.`;
   } else if (s.state === 'starting' || s.state === 'on') {
     text = `$(sync~spin) ${subject}: Starting...`;
-    lines.push(`Mode: ${mode}. Starting. Sleep protection is not confirmed yet, so your computer is not protected until the icon turns green.`);
+    lines.push(`Mode: ${mode}. Starting. A native request is not confirmed yet; do not assume sleep is blocked.`);
     hint = 'Click to turn Off to cancel startup.';
     label = `${NAME}: ${mode} is starting. Protection is not confirmed yet.`;
   } else if (s.state === 'failed') {
@@ -199,6 +201,7 @@ function autoUnavailableMessage(s) {
 function activate(context) {
   /** @type {string} */
   const version = context.extension.packageJSON.version;
+  const loadedVersion = `Loaded version: ${version} in this window.`;
   const log = vscode.window.createOutputChannel(NAME, { log: true });
   /** @param {'debug' | 'info' | 'warn' | 'error'} level @param {string} message */
   const write = (level, message) => log[level](message);
@@ -334,7 +337,7 @@ function activate(context) {
   }
 
   function showStatus() {
-    const summary = present(state(), windows).lines.join(' ');
+    const summary = [loadedVersion, ...present(state(), windows).lines].join(' ');
     void notify('info', summary, ['Show Log']).then(choice => {
       if (choice === 'Show Log') log.show(true);
     });
@@ -343,11 +346,11 @@ function activate(context) {
   function render() {
     const view = present(state(), windows);
     status.text = view.text;
-    status.tooltip = [...view.lines, view.hint].join('\n');
+    status.tooltip = [loadedVersion, ...view.lines, view.hint].join('\n');
     status.color = view.green ? green : undefined;
     status.backgroundColor = view.background ? new vscode.ThemeColor(`statusBarItem.${view.background}Background`) : undefined;
     status.command = `${SECTION}.toggleSession`;
-    status.accessibilityInformation = { label: view.label, role: 'button' };
+    status.accessibilityInformation = { label: `${view.label} ${loadedVersion}`, role: 'button' };
     if (vscode.workspace.getConfiguration(SECTION).get('showStatusBarItem') === false) {
       status.hide();
     } else {
