@@ -8,8 +8,8 @@ const { spawn } = require('node:child_process');
 const { buildHelpers } = require('../../src/keepAwake');
 const { windowsMouseJiggleScript } = require('../../src/windowsMouseJiggle');
 
-/** @param {string} command @param {string[]} args @returns {Promise<string>} */
-function closedInput(command, args) {
+/** @param {string} command @param {string[]} args @param {string} [input] @returns {Promise<string>} */
+function closedInput(command, args, input = '') {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe']
@@ -21,7 +21,14 @@ function closedInput(command, args) {
       timedOut = true;
       child.kill();
     }, 20_000);
-    child.stdout.on('data', chunk => { stdout = (stdout + chunk.toString()).slice(-512); });
+    child.stdout.on('data', chunk => {
+      if (stdout.length > 16_384) return;
+      stdout += chunk.toString();
+      if (stdout.length > 16_384) {
+        child.kill();
+        reject(new Error('Windows guard checker output exceeded 16KB.'));
+      }
+    });
     child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-2048); });
     child.stdin.on('error', error => {
       if (error && 'code' in error && error.code === 'EPIPE') return;
@@ -36,7 +43,7 @@ function closedInput(command, args) {
       else if (code !== 0) reject(new Error(`Helper initialization/EOF failed (code=${code}): ${stderr.trim()}`));
       else resolve(stdout);
     });
-    child.stdin.end();
+    child.stdin.end(input);
   });
 }
 
@@ -87,6 +94,68 @@ async function main() {
   });
   console.log('PASS actual PowerShell idle predicate: both thresholds, exact240, 239.999 rejection and huge-age/short-quiet rejection.');
   console.log('PASS actual PowerShell pulse policy: locked, held-button, recent input, exact 30-second and invalid-age cases.');
+  const source = windowsMouseJiggleScript();
+  const desktopFunction = source.match(/function Test-InteractiveDesktop \{[\s\S]*?\r?\n\}/)?.[0];
+  const pulseFunction = source.match(/function Invoke-JigglePulse \{[\s\S]*?\r?\n\}/)?.[0];
+  assert.ok(desktopFunction && pulseFunction);
+  const allocationStart = source.indexOf('  $lastInput = [Runtime.InteropServices.Marshal]::AllocHGlobal(8)');
+  const allocationEnd = source.indexOf('  if (-not (Test-InteractiveDesktop))');
+  assert.ok(allocationStart >= 0 && allocationEnd > allocationStart);
+  const allocation = source.slice(allocationStart, allocationEnd);
+  const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'mouse-native-stub.ps1'), 'utf8');
+  assert.doesNotMatch(fixture, /DllImport|DefinePInvoke|user32\.dll|Add-Type/i, 'the fixture must not bind to live input APIs');
+  const defaults = {
+    now: 60_000, last: 0, unlocked: true, session: 1, desktop: 'Default',
+    heldKey: 0, inputQuery: true, desktopQuery: true, accepted: 2, canceled: false,
+    expectedSends: 1, expectedCloses: 1, error: ''
+  };
+  const pulseCases = [
+    { name: 'idle-pair' },
+    { name: 'exact30', now: 30_000 },
+    { name: 'recent', now: 29_999, expectedSends: 0 },
+    { name: 'held-mouse', heldKey: 1, expectedSends: 0 },
+    { name: 'held-control', heldKey: 17, expectedSends: 0 },
+    { name: 'held-windows-key', heldKey: 92, expectedSends: 0 },
+    { name: 'locked', unlocked: false, expectedSends: 0, expectedCloses: 0, error: 'desktop locked' },
+    { name: 'other-session', session: 2, expectedSends: 0, expectedCloses: 0, error: 'session changed' },
+    { name: 'secure-desktop', desktop: 'Winlogon', expectedSends: 0, error: 'desktop locked' },
+    { name: 'desktop-query-failure', desktopQuery: false, expectedSends: 0, error: 'verify the input desktop' },
+    { name: 'last-input-failure', inputQuery: false, expectedSends: 0, error: 'last-input timestamp' },
+    { name: 'partial-input-failure', accepted: 1, error: 'input was rejected' },
+    { name: 'canceled-before-send', canceled: true, expectedSends: 0 },
+    { name: 'signed-tick-boundary', now: 2_147_513_649, last: -2_147_483_647 },
+    { name: 'tick-wrap', now: 29_900, last: -100 },
+    { name: 'future-timestamp', now: 30_000, last: 60_000, expectedSends: 0 }
+  ].map(sample => ({ ...defaults, ...sample }));
+  const flowProgram = [
+    "$ErrorActionPreference='Stop'", fixture, policy, desktopFunction, pulseFunction,
+    `$allocate = {${allocation}}`,
+    `$cases=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(JSON.stringify(pulseCases)).toString('base64')}'))|ConvertFrom-Json`,
+    '@(foreach($case in $cases){Test-StubPulse -Case $case -Allocate $allocate})|ConvertTo-Json -Compress'
+  ].join('\n');
+  const readTestScript = '$testSource=[Console]::In.ReadToEnd(); & ([scriptblock]::Create($testSource))';
+  /** @type {unknown} */
+  const checked = JSON.parse(await closedInput(helper.command, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand',
+    Buffer.from(readTestScript, 'utf16le').toString('base64')], flowProgram));
+  assert.ok(Array.isArray(checked) && checked.length === pulseCases.length);
+  for (const [index, expected] of pulseCases.entries()) {
+    /** @type {unknown} */
+    const actual = checked[index];
+    assert.ok(actual && typeof actual === 'object' &&
+      'name' in actual && typeof actual.name === 'string' &&
+      'sends' in actual && typeof actual.sends === 'number' &&
+      'closes' in actual && typeof actual.closes === 'number' &&
+      'layoutChecked' in actual && typeof actual.layoutChecked === 'boolean' &&
+      'error' in actual && typeof actual.error === 'string', 'stub result must have the complete measured output shape');
+    assert.equal(actual.name, expected.name);
+    const diagnostic = `${expected.name}: ${JSON.stringify(actual)}`;
+    assert.equal(actual.sends, expected.expectedSends, diagnostic);
+    assert.equal(actual.closes, expected.expectedCloses, diagnostic);
+    assert.equal(actual.layoutChecked, expected.expectedSends > 0, diagnostic);
+    if (expected.error) assert.ok(actual.error.includes(expected.error), `${expected.name}: ${actual.error}`);
+    else assert.equal(actual.error, '', expected.name);
+  }
+  console.log(`PASS ${pulseCases.length} production pulse-flow/buffer cases through stub native calls; no live mouse input API was bound or called.`);
   console.log('BOOTSTRAP/EOF ONLY: stdin is closed before helper initialization. The movement loop must not execute; this is not sleep-prevention UAT.');
   const output = await closedInput(helper.command, helper.args);
   assert.match(output, /^READY$/m);

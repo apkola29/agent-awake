@@ -64,6 +64,12 @@ a verified sleep fix. Distribution stays withdrawn. Automated checks do not
 send live synthetic input; the Windows startup check precloses stdin before
 initialization, so the movement loop cannot run.
 
+The guard checker also executes the production pulse function and buffer
+allocation against a stub native class. It checks the paired mouse-only buffer,
+idle boundaries, held input, locked/changed desktop, canceled input, partial
+rejection and 32-bit tick wrap. These are control-flow and memory-layout checks,
+not evidence that a live Windows input event prevents sleep.
+
 ```powershell
 node .\test\os\verify-windows-guards.js
 ```

@@ -18,6 +18,8 @@ test('mouse fallback has one interruptible wait and no policy changes, clicks, k
   assert.ok(script.indexOf("if ($action -eq 'move')") < script.indexOf('::SendInput('));
   assert.ok(script.includes('CloseDesktop'));
   assert.ok(script.includes('FreeHGlobal'));
+  assert.match(script, /function Invoke-JigglePulse/);
+  assert.match(script, /Invoke-JigglePulse\s*\r?\n\s*\}/);
 });
 
 test('pulse policy is bounded, stops on an inaccessible desktop and skips recent or held input', () => {

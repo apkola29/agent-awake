@@ -48,6 +48,23 @@ function Test-InteractiveDesktop {
   }
 }
 
+function Invoke-JigglePulse {
+  $unlocked = Test-InteractiveDesktop
+  if (-not $n::GetLastInputInfo($lastInput)) { throw 'Mouse jiggle could not query the last-input timestamp.' }
+  $lastTick = ([long][Runtime.InteropServices.Marshal]::ReadInt32($lastInput, 4) + 4294967296) % 4294967296
+  $idle = (([long]$n::GetTickCount() - [long]$lastTick + 4294967296) % 4294967296) / 1000.0
+  $pressed = $false
+  foreach ($key in 1,2,4,5,6,16,17,18,91,92) {
+    if (($n::GetAsyncKeyState($key) -band 0x8000) -ne 0) { $pressed = $true; break }
+  }
+  $action = Get-JiggleAction -Unlocked $unlocked -IdleSeconds $idle -Pressed $pressed
+  if ($action -eq 'stop') { throw 'Mouse jiggle stopped because the desktop locked or the console session changed. Start again manually.' }
+  if ($action -eq 'move') {
+    if ($read.IsCompleted) { return }
+    if ($n::SendInput([uint32]2, $inputs, $inputSize) -ne 2) { throw 'Mouse jiggle input was rejected; the helper has stopped.' }
+  }
+}
+
 $lastInput = [IntPtr]::Zero
 $inputs = [IntPtr]::Zero
 $desktopName = [IntPtr]::Zero
@@ -81,20 +98,7 @@ try {
       [void]$n::K32EmptyWorkingSet([IntPtr](-1))
       $trimmed = $true
     }
-    $unlocked = Test-InteractiveDesktop
-    if (-not $n::GetLastInputInfo($lastInput)) { throw 'Mouse jiggle could not query the last-input timestamp.' }
-    $lastTick = ([long][Runtime.InteropServices.Marshal]::ReadInt32($lastInput, 4) + 4294967296) % 4294967296
-    $idle = (([long]$n::GetTickCount() - [long]$lastTick + 4294967296) % 4294967296) / 1000.0
-    $pressed = $false
-    foreach ($key in 1,2,4,5,6,16,17,18,91,92) {
-      if (($n::GetAsyncKeyState($key) -band 0x8000) -ne 0) { $pressed = $true; break }
-    }
-    $action = Get-JiggleAction -Unlocked $unlocked -IdleSeconds $idle -Pressed $pressed
-    if ($action -eq 'stop') { throw 'Mouse jiggle stopped because the desktop locked or the console session changed. Start again manually.' }
-    if ($action -eq 'move') {
-      if ($read.IsCompleted) { break }
-      if ($n::SendInput([uint32]2, $inputs, $inputSize) -ne 2) { throw 'Mouse jiggle input was rejected; the helper has stopped.' }
-    }
+    Invoke-JigglePulse
   }
 } catch {
   [Console]::Error.WriteLine($_.Exception.Message)

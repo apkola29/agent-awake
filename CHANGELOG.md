@@ -13,6 +13,9 @@
 - No live synthetic input is run by the automated startup/policy tests.
   This prototype is not installed or published, not benchmarked as lighter,
   and not certified to prevent sleep. Public distribution remains withdrawn.
+- Exercise the production pulse and allocation path through a non-native stub:
+  16 cases cover input-buffer layout, recent/held input, lock/session changes,
+  cancellation, API rejection and clock wrap. No live mouse API is called.
 
 ## Unreleased local development - 1.2.3
 
