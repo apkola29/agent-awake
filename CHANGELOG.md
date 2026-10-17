@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased local prototype - 1.3.0
+## 1.3.0 - experimental pre-release - 2026-10-17
 
 - Add a separate, per-session consent-gated Windows mouse-jiggle command.
   Native power requests remain the default and the ordinary cup never
@@ -11,8 +11,8 @@
 - Keep input-only sessions visibly Unverified and separate from native
   request acknowledgement. Disclose pointer/automatic-lock effects.
 - No live synthetic input is run by the automated startup/policy tests.
-  This prototype is not installed or published, not benchmarked as lighter,
-  and not certified to prevent sleep. Public distribution remains withdrawn.
+  This preview is not benchmarked as lighter and is not certified to prevent
+  sleep. Native mode remains the default; mouse input is never auto-enabled.
 - Exercise the production pulse and allocation path through a non-native stub:
   16 cases cover input-buffer layout, recent/held input, lock/session changes,
   cancellation, API rejection and clock wrap. No live mouse API is called.
@@ -21,7 +21,7 @@
 - Refuse the experimental input command in automated extension-test hosts,
   verified separately from manually consented development/normal windows.
 
-## Unreleased local development - 1.2.3
+## 1.2.3 - development changes included in 1.3.0
 
 - Show the version actually loaded in this window in the tooltip, screen-reader
   label and Show Status, rather than making users infer it from installed files.
@@ -29,7 +29,7 @@
   and an explicit statement that it is not unattended sleep-prevention proof.
 - Clarify that chat activity does not activate this manual prototype.
 - These disclosure fixes do not fix or certify hardware sleep prevention.
-  No 1.2.3 package, installation, public push or deployment is authorized.
+  They were developed locally, without a separate 1.2.3 binary release.
 - Add an opt-in controlled-editor hardware component checker using the actual
   production coordinator plus a read-only native observer. It verifies loaded
   version and helper/host identity, unchanged idle policies and real sleep

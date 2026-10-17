@@ -1,9 +1,10 @@
 # Agent Awake
 
-> **Distribution paused: not validated for unattended work.**
-> The 1.2.2 GitHub download has been withdrawn, GitHub Pages disabled, and the
-> Marketplace listing unpublished. Do not rely on this prototype to prevent
+> **Experimental pre-release: hardware acceptance is outstanding.**
+> Version 1.3.0 is a supervised-testing preview, not a certified fix for
 > unattended sleep. Passing API/command tests are not hardware acceptance proof.
+> Mouse jiggle is optional, requires consent for each session, and may delay
+> automatic locking. Use it only where device policy permits.
 
 **Click the ready coffee cup before a long run. Click the green cup when you are done.**
 
@@ -21,14 +22,14 @@ Automatic Copilot activity detection is **not implemented** in this release.
 The public name is Agent Awake. The original extension ID
 `apkola29.agent-keep-awake` and `agentKeepAwake.*` settings/commands are retained
 so existing installations receive an update instead of a second extension.
-This guide describes the withdrawn **1.2.2 prototype**. Real idle acceptance
+This guide describes the **1.3.0 experimental pre-release**. Real idle acceptance
 must be performed using the version actually loaded in the affected window,
 not merely the version installed on disk or running in another test window.
 
-## Local-only mouse-jiggle prototype (1.3.0 source)
+## Optional experimental mouse jiggle
 
-The latest source adds **Agent Awake: Start Experimental Mouse Jiggle...** in
-the Command Palette. It is not installed or publicly distributed. The normal
+This preview adds **Agent Awake: Start Experimental Mouse Jiggle...** in
+the Command Palette. It is Windows-only and remains unverified. The normal
 cup and native commands still use the original power-request route; there is
 no persistent mouse-jiggle setting and no automatic activation.
 
@@ -65,7 +66,7 @@ close/reload or helper failure stops the owned session.
   confirmed green: a running helper is not proof that Windows will stay awake.
 
 This is a compatibility experiment, not a measured CPU/memory improvement or
-a verified sleep fix. Distribution stays withdrawn. Automated checks do not
+a verified sleep fix. It is offered only in this experimental preview. Automated checks do not
 send live synthetic input; the Windows startup check precloses stdin before
 initialization, so the movement loop cannot run.
 
@@ -92,10 +93,12 @@ Requirements: **desktop VS Code 1.95 or newer**. Manual power control needs
 no hooks, model account, API key, or subscription. Windows is the validated
 native-request target; macOS/Linux protection remains explicitly unverified.
 
-1. This is for supervised local testing only; do not distribute or rely on the
-   withdrawn package. Before a test, use **Agent Awake: Show Log** in the actual
-   window being tested and verify its loaded version. Reload an older window
-   only when its agent work is safe to interrupt. Reload starts Off.
+1. Open [Agent Awake](https://marketplace.visualstudio.com/items?itemName=apkola29.agent-keep-awake)
+   in VS Code's Extensions view and choose **Switch to Pre-Release Version**.
+   Verify version **1.3.0**. This preview is for supervised testing, not
+   certified unattended use. Use **Agent Awake: Show Log** in the actual
+   window to verify the loaded version. Reload an older window only when its
+   agent work is safe to interrupt. Reload starts Off.
 2. **Click `@awake ready` once.** No picker or confirmation is needed.
 3. On Windows, wait for the acknowledged **green cup**, then use normal Copilot,
    Claude, or any other application. No `@awake` prefix or model replacement is required.
@@ -408,14 +411,15 @@ sleep problem has passed unattended UAT or that OS policies can be overridden.
 Native Copilot Auto and macOS/Linux confirmation remain separately unverified.
 
 Local source, an installed VSIX, a loaded window and the Marketplace version are
-distinct. Public distribution is withdrawn pending real idle acceptance and
-explicit approval. After an update, reload a window only when its agent
+distinct. This experimental pre-release does not establish stable hardware
+support; that still requires real idle acceptance. After an update, reload a window only when its agent
 work is safe to interrupt, then use **Agent Awake: Show Log** to check the loaded
 version. Reload starts Off; click the cup to enable it again.
 
 CI tests are manually triggered. There is no automatic Marketplace release
 workflow. The usage/why source is in this repository's `docs` folder, but its
-Pages deployment is disabled while validation is incomplete.
+Pages deployment and earlier GitHub binary remain withdrawn. Publishing this
+Marketplace preview does not re-enable that site or release.
 
 License: [MIT](LICENSE).
 
