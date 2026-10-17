@@ -291,7 +291,7 @@ class FakeBackend extends EventEmitter {
 /**
  * @param {{
  *   durationHours?: unknown, showStatusBarItem?: boolean, trusted?: boolean, platform?: NodeJS.Platform,
- *   version?: string, realCoordinator?: boolean
+ *   version?: string, realCoordinator?: boolean, extensionMode?: number
  * }} [options]
  */
 function fixture(options = {}) {
@@ -362,6 +362,7 @@ function fixture(options = {}) {
   class ThemeColor { constructor(/** @type {string} */ id) { this.id = id; } }
   const vscode = {
     ThemeColor,
+    ExtensionMode: { Production: 1, Development: 2, Test: 3 },
     StatusBarAlignment: { Right: 1 },
     get chat() { forbidden.push('chat'); throw new Error('the primary controls must not touch vscode.chat'); },
     get lm() { forbidden.push('lm'); throw new Error('the primary controls must not touch vscode.lm'); },
@@ -442,7 +443,7 @@ function fixture(options = {}) {
   /** @type {{ dispose: () => void }[]} */
   const subscriptions = [];
   const activate = load('extension.js').activate;
-  const api = activate({ subscriptions, extension: { packageJSON: { version } } });
+  const api = activate({ subscriptions, extension: { packageJSON: { version } }, extensionMode: options.extensionMode ?? 1 });
   const coordinator = coordinators[0];
 
   /** @param {string} name */
@@ -531,6 +532,18 @@ test('mouse fallback is never started without per-session explicit consent', asy
     assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
     assert.match(f.messages[0].text, /automatic locking/i);
     assert.match(f.messages[0].text, /policy permits/i);
+  } finally { f.dispose(); }
+});
+
+test('an automated extension-test host cannot activate simulated input, even with a scripted toast answer', async () => {
+  const f = fixture({ platform: 'win32', realCoordinator: true, extensionMode: 3 });
+  try {
+    f.answerToastsWith(() => 'Start mouse jiggle');
+    assert.equal(await f.run('startMouseJiggle'), false);
+    assert.equal(f.api.getState().mode, 'off');
+    assert.equal(f.backend.calls.some(call => call.call === 'acquire'), false);
+    assert.match(f.messages[0].text, /automated extension-test host/);
+    assert.deepEqual(f.messages[0].actions, []);
   } finally { f.dispose(); }
 });
 

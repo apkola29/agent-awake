@@ -362,6 +362,11 @@ async function run() {
   const ext = vscode.extensions.getExtension(EXTENSION_ID);
   assert.ok(ext);
   api = await ext.activate();
+  assert.equal(await command('startMouseJiggle'), false, 'automated hosts must never activate synthetic input');
+  assertOff();
+  assert.equal(api.getState().mouseJiggle, false);
+  assert.deepEqual(api.getState().pids, []);
+  console.log('PASS PRECHECK automated test-host mouse-input refusal; no helper or consent action (not native power or hardware proof)');
   // A hold that already exists would be mistaken for somebody else's power request in the baseline below.
   assertOff();
   const baseline = await nativeState();

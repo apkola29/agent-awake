@@ -18,6 +18,8 @@
   cancellation, API rejection and clock wrap. No live mouse API is called.
 - Stop visibly on unusable last-input timestamps rather than silently skipping
   indefinitely. This is a fail-closed guard, not a verified sleep fix.
+- Refuse the experimental input command in automated extension-test hosts,
+  verified separately from manually consented development/normal windows.
 
 ## Unreleased local development - 1.2.3
 

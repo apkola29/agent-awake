@@ -50,6 +50,9 @@ close/reload or helper failure stops the owned session.
   Unexpected exit never automatically restarts synthetic input.
 - An unusable/future last-input timestamp stops with an explicit error rather
   than leaving a silently nonfunctional helper running.
+- The command refuses activation inside an automated VS Code extension-test
+  host. A normal or F5 development window still requires fresh human consent;
+  automated tests must use the no-input guard checker instead.
 - Initialization is bounded to 20 seconds because this route also verifies
   desktop/session access. A timeout releases the helper, so a late startup
   cannot begin input after reporting failure. Native startup keeps its existing

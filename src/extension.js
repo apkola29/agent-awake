@@ -266,6 +266,12 @@ function activate(context) {
   }
 
   async function startMouseJiggle() {
+    if (context.extensionMode === vscode.ExtensionMode.Test) {
+      const message = 'Experimental mouse input cannot run in an automated extension-test host.';
+      log.warn(message);
+      void notify('warn', message);
+      return false;
+    }
     const before = state();
     if (!windows || before.mode !== 'off' || mouseConsentPending) {
       const message = !windows ? 'Experimental mouse jiggle is Windows-only.'
